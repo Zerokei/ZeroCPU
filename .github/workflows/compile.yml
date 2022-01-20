@@ -7,7 +7,7 @@ on:
       - 'src/**'
       - 'build.sbt'
       - 'Makefile'
-  pull_requests:
+  pull_request:
       types: [opened, reopened]
 
 
