@@ -1,0 +1,26 @@
+name: Compile
+
+on:
+  push:
+    paths:
+      - '.github/workflows/compile.yml'
+      - 'src/**'
+      - 'build.sbt'
+      - 'Makefile'
+  pull_requests:
+      types: [opened, reopened]
+
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Scala
+        uses: olafurpg/setup-scala@v11
+      - name: Cache Scala
+        uses: coursier/cache-action@v6
+      - name: Compile Test
+        run: make
