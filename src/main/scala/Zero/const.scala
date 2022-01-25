@@ -1,7 +1,7 @@
 package zeroCPU.const
 import chisel3._
 import chisel3.util._
-case class ZeroConfig{
+object ZeroConfig{
   // simple Y or N
   val Y = false.B
   val N = true.B

@@ -1,9 +1,9 @@
 package zeroCPU.wow
 import chisel3._
 import chisel3.util._
-import zeroCPU.const.ZeroConfig
+import zeroCPU.const.ZeroConfig._
 
-class ALU extends Module with AluOpType{
+class ALU extends Module{
   val io = IO(new Bundle{
     val in_a = Input(UInt(32.W))
     val in_b = Input(UInt(32.W))
