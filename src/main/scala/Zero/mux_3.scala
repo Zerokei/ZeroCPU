@@ -1,8 +1,6 @@
-package ZeroCPU.wow
+package zeroCPU.wow
 import chisel3._
 import chisel3.util._
-import chisel3.experimental._
-import chisel3.stage.{ChiselStage, ChiselGeneratorAnnotation}
 class Mux_3 extends Module {
   val io = IO(new Bundle{
     val in_a = Input(UInt(32.W))
