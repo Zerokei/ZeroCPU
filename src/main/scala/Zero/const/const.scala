@@ -5,6 +5,10 @@ object ZeroConfig{
 
   val LEN = 32  // Length of instruction
   val DLEN = 32 // Length of data
+  val SLEN = 32 // Length of csr register
+
+  val NREGS = 5 // number of registers
+  val NREGS_BIT = log2Ceil(NREGS)
 
   // AluOp
   val ALU_SIG_LEN = 5
@@ -93,4 +97,30 @@ object ZeroConfig{
   val CSW_BRK = 2.U(CSW_SIG_LEN.W)  // write to CSR ebreak
   val CSW_CAL = 3.U(CSW_SIG_LEN.W)  // write to CSR ecall
   val CSW_X   = 0.U(CSW_SIG_LEN.W)  // default
+
+  // Type
+  val TYPE_LEN = 3
+  val R_TYPE = 0.U(TYPE_LEN.W)
+  val I_TYPE = 1.U(TYPE_LEN.W)
+  val S_TYPE = 2.U(TYPE_LEN.W)
+  val U_TYPE = 3.U(TYPE_LEN.W)
+  val B_TYPE = 4.U(TYPE_LEN.W)
+  val J_TYPE = 5.U(TYPE_LEN.W)
+  val X_TYPE = 0.U(TYPE_LEN.W)
+
+  // Forwarding Part
+  val FWD_SIG_LEN = 2
+  val FWD_REG = 0.U(FWD_SIG_LEN.W)  // normal
+  val FWD_MEM = 1.U(FWD_SIG_LEN.W)  // forwarding alu data from mem state
+  val FWD_WB  = 2.U(FWD_SIG_LEN.W)  // forwarding data from wb state
+  val FWD_CSR = 3.U(FWD_SIG_LEN.W)  // forwarding csr data from mem state(while csr data from mem is included in 2.U)
+  val FWD_X   = 0.U(FWD_SIG_LEN.W)  // default
+
+  val CSRS_SIZE    = 12  
+  val CSR_MSTATUS = "h300".U(CSRS_SIZE)
+  val CSR_MTVEC   = "h305".U(CSRS_SIZE)
+  val CSR_MEPC    = "h340".U(CSRS_SIZE)
+  val CSR_MCAUSE  = "h342".U(CSRS_SIZE)
+  val CSR_F       = "hFFF".U(CSRS_SIZE) // undefined instruction
+  val CSR_X       = "h000".U(CSRS_SIZE)
 }
