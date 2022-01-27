@@ -2,9 +2,6 @@ package zeroCPU.const
 import chisel3._
 import chisel3.util._
 object ZeroConfig{
-  // simple Y or N
-  val Y = false.B
-  val N = true.B
 
   // AluOp
   val ALU_SIG_LEN = 5
@@ -68,16 +65,16 @@ object ZeroConfig{
   val OP2_X   = 0.U(OP2_SIG_LEN.W)  // default
 
   // RegWrite
-  val REN_Y = Y // enable write to register
-  val REN_X = N // default
+  val REN_Y = true.B // enable write to register
+  val REN_X = false.B // default
 
   // MemWrite
-  val MW_Y = Y  // memory write
-  val MW_X = N  // default
+  val MW_Y = true.B  // memory write
+  val MW_X = false.B  // default
 
   // PcLock
-  val PCL_Y = Y // lock pc
-  val PCL_X = N // default
+  val PCL_Y = true.B // lock pc
+  val PCL_X = false.B // default
 
   // Forwarding Rs
   val FR_SIG_LEN = 2
@@ -88,12 +85,9 @@ object ZeroConfig{
   val FR_X   = 0.U(FR_SIG_LEN.W)  // default
 
   // CSRWrite
-  val CSW_Y = Y // write to CSR
-  val CSW_X = N // default
-
-  // SigCSR
-  val CSS_SIG_LEN = 1
-  val CSS_REG = 0.U(CSS_SIG_LEN.W)  // from register
-  val CSS_PC  = 1.U(CSS_SIG_LEN.W)  // from PC
-  val CSS_X   = 0.U(CSS_SIG_LEN.W)  // default
+  val CSW_SIG_LEN = 2
+  val CSW_REG = 1.U(CSW_SIG_LEN.W)  // write to CSR csrrs
+  val CSW_BRK = 2.U(CSW_SIG_LEN.W)  // write to CSR ebreak
+  val CSW_CAL = 3.U(CSW_SIG_LEN.W)  // write to CSR ecall
+  val CSW_X   = 0.U(CSW_SIG_LEN.W)  // default
 }

@@ -14,7 +14,6 @@ object GenTV extends App{
   //   Array("-td", "build/verilog/base", "-X", "verilog"), 
   //   Seq(ChiselGeneratorAnnotation(() => new Total)))
 //  visualize(() => new mux_1)
-  (new chisel3.stage.ChiselStage).emitVerilog(new ALU())
-  //(new chisel3.stage.ChiselStage).emitVerilog(new Mux_3())
+  (new chisel3.stage.ChiselStage).emitVerilog(new Decoder())
   // (new chisel3.stage.ChiselStage).emitVerilog()
 }
