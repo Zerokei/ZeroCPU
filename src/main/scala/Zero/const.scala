@@ -3,6 +3,9 @@ import chisel3._
 import chisel3.util._
 object ZeroConfig{
 
+  val LEN = 32  // Length of instruction
+  val DLEN = 32 // Length of data
+
   // AluOp
   val ALU_SIG_LEN = 5
   val ALU_ADD   = 0.U(ALU_SIG_LEN.W)

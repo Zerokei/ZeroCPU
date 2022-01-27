@@ -67,7 +67,7 @@ class Decoder extends Module{
               ECALL   ->List( PC_CSR, BR_X  , WB_X    , REN_X , OP1_X   , OP2_X   , ALU_X   , MW_X  , CSW_CAL )
             ))
   // val io.pc_src :: io.branch_sig :: io.mem_to_reg :: io.reg_write :: io.op_src1 :: io.op_src2 :: io.alu_src :: io.mem_write :: io.csr_write :: Nil = signals
-  val pc_src  :: branch_sig :: mem_to_reg ::  (reg_write: Bool) :: op_src1:: op_src2 ::  alu_src :: (mem_write: Bool) :: csr_write :: Nil = signals
+  val pc_src :: branch_sig :: mem_to_reg :: (reg_write: Bool) :: op_src1 :: op_src2 ::  alu_src :: (mem_write: Bool) :: csr_write :: Nil = signals
   io.pc_src := pc_src
   io.branch_sig := branch_sig
   io.mem_to_reg := mem_to_reg
@@ -77,4 +77,8 @@ class Decoder extends Module{
   io.alu_src := alu_src
   io.mem_write := mem_write
   io.csr_write := csr_write
+
+
+
+
 }

@@ -5,10 +5,10 @@ import zeroCPU.const.ZeroConfig._
 
 class ALU extends Module{
   val io = IO(new Bundle{
-    val in_a = Input(UInt(32.W))
-    val in_b = Input(UInt(32.W))
-    val alu_op = Input(UInt(5.W))
-    val alu_out = Output(UInt(32.W))
+    val in_a = Input(UInt(DLEN.W))
+    val in_b = Input(UInt(DLEN.W))
+    val alu_op = Input(UInt(ALU_SIG_LEN.W))
+    val alu_out = Output(UInt(DLEN.W))
     val zero = Output(Bool())
   })
   
