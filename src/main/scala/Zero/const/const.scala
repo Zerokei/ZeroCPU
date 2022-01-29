@@ -10,6 +10,8 @@ object ZeroConfig{
   val NREGS = 5 // number of registers
   val NREGS_BIT = log2Ceil(NREGS)
 
+  val NOP = "h00000013".U(LEN.W)
+
   // AluOp
   val ALU_SIG_LEN = 5
   val ALU_ADD   = 0.U(ALU_SIG_LEN.W)

@@ -10,8 +10,8 @@ class CSR_MOD extends Module{
     val rd    = Input(UInt(DLEN.W))
     val csr   = Input(UInt(CSRS_SIZE.W))
     val reg   = Input(UInt(DLEN.W))
-    val t     = Output(UInt(DLEN.W))
-    val pc_out= Output(UInt(DLEN.W))
+    val t     = Output(UInt(SLEN.W))
+    val pc_out= Output(UInt(SLEN.W))
   })
 
   /*
@@ -21,15 +21,28 @@ class CSR_MOD extends Module{
   val mtvec   = RegInit(0.U(SLEN.W))
   val mepc    = RegInit(0.U(SLEN.W))
   val mstatus = RegInit(0.U(SLEN.W))
+  
+  when(io.sig === CSW_REG){
+    when(io.csr === CSR_MTVEC){
+      io.t := mtvec
+    }.elsewhen(io.csr === CSR_MSTATUS){
+      io.t := mstatus
+    }.otherwise{
+      io.t := 0.U(SLEN.W)
+    }
+  }.otherwise{
+    io.t := 0.U(SLEN.W)
+  }
+
+  io.pc_out := mepc
+
   when(io.sig === CSW_REG){
     when(io.csr === CSR_X){
       // do nothing
     }.elsewhen(io.csr === CSR_MTVEC){
-      io.t := mtvec
-      mtvec := io.t | io.reg
+      mtvec := mtvec | io.reg
     }.elsewhen(io.csr === CSR_MSTATUS){
-      io.t := mstatus
-      mstatus := io.t | io.reg
+      mstatus := mstatus | io.reg
     }.elsewhen(io.csr === CSR_F){
       mstatus := "h00002".U // Illegal Instruction
     }.otherwise{
@@ -44,7 +57,4 @@ class CSR_MOD extends Module{
   }.otherwise{
     // do nothing
   }
-  
-  io.pc_out := mepc
-
 }

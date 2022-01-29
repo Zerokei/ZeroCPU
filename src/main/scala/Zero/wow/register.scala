@@ -14,7 +14,8 @@ class Register() extends Module{
 		val data_out2 = Output(UInt(DLEN.W))
 	})
   // Init registers
-	val v = RegInit(VecInit(Seq.fill(NREGS)(0.U(DLEN.W))))
+    val clock_n = (!clock.asBool).asAsyncReset
+	val v = withReset(clock_n)(RegInit(VecInit(Seq.fill(NREGS)(0.U(DLEN.W)))))
   // write
 	when(io.rd =/= 0.U(NREGS_BIT.W) && io.reg_write){
 		v(io.rd) := io.data_in

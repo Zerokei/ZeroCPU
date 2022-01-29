@@ -15,7 +15,7 @@ class Decoder extends Module{
     val reg_write   = Output(Bool())
     val op_src1     = Output(UInt(OP1_SIG_LEN.W))
     val op_src2     = Output(UInt(OP2_SIG_LEN.W))
-    val alu_src     = Output(UInt(ALU_SIG_LEN.W))
+    val alu_op     = Output(UInt(ALU_SIG_LEN.W))
     val mem_write   = Output(Bool())
     val csr_write   = Output(UInt(CSW_SIG_LEN.W))
     // imm
@@ -24,6 +24,7 @@ class Decoder extends Module{
     val rs1         = Output(UInt(NREGS_BIT.W))
     val rs2         = Output(UInt(NREGS_BIT.W))
     val rd          = Output(UInt(NREGS_BIT.W))
+    val csr_index   = Output(UInt(NREGS_BIT.W))
   })
   val inst = io.inst
   val signals =
@@ -74,16 +75,16 @@ class Decoder extends Module{
               ECALL   ->List( PC_CSR, BR_X  , WB_X    , REN_X , OP1_X   , OP2_X   , ALU_X   , MW_X  , CSW_CAL , I_TYPE)
             ))
 
-  val pc_src :: branch_sig :: mem_to_reg :: (reg_write: Bool) :: op_src1 :: op_src2 ::  alu_src :: (mem_write: Bool) :: csr_write :: mytype :: Nil = signals
+  val pc_src :: branch_sig :: mem_to_reg :: (reg_write: Bool) :: op_src1 :: op_src2 ::  alu_op :: (mem_write: Bool) :: csr_write :: mytype :: Nil = signals
   io.pc_src := pc_src
   io.branch_sig := branch_sig
   io.mem_to_reg := mem_to_reg
-  io.reg_write := reg_write
-  io.op_src1 := op_src1
-  io.op_src2 := op_src2
-  io.alu_src := alu_src
-  io.mem_write := mem_write
-  io.csr_write := csr_write
+  io.reg_write  := reg_write
+  io.op_src1    := op_src1
+  io.op_src2    := op_src2
+  io.alu_op     := alu_op
+  io.mem_write  := mem_write
+  io.csr_write  := csr_write
 
   val imm_i = Cat(Fill(DLEN-12, inst(31)), inst(31,20)) // i-type
   val imm_s = Cat(Fill(DLEN-12, inst(31)), inst(31,25), inst(11,7)) // s-type
@@ -113,4 +114,6 @@ class Decoder extends Module{
   io.rs1 := rs(NREGS_BIT*3, NREGS_BIT*2+1)
   io.rs2 := rs(NREGS_BIT*2, NREGS_BIT+1)
   io.rd  := rs(NREGS_BIT  , 1)
+  
+  io.csr_index := inst(31,20)
 }

@@ -9,7 +9,7 @@ class ALU extends Module{
     val in_b = Input(UInt(DLEN.W))
     val alu_op = Input(UInt(ALU_SIG_LEN.W))
     val alu_out = Output(UInt(DLEN.W))
-    val zero = Output(Bool())
+//    val zero = Output(Bool())
   })
   
   val a = io.in_a
@@ -28,5 +28,5 @@ class ALU extends Module{
     (io.alu_op === ALU_COPY) -> a
   ))
 
-  io.zero := (io.alu_out === 0.U)
+//  io.zero := (io.alu_out === 0.U)
 }
