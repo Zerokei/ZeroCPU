@@ -1,6 +1,7 @@
 package zeroCPU.core
 import chisel3._
 import chisel3.util._
+import chisel3.util.experimental.BoringUtils
 import zeroCPU.wow._
 import zeroCPU.const.ZeroConfig._
 
@@ -13,7 +14,7 @@ class CPU extends Module{
     val mem_write = Output(UInt(LEN.W)) // CPU -> ram(mem_write)
     val pc_out = Output(UInt(LEN.W)) // CPU -> rom(pc)
 	})
-
+  
   val flush_ID = Wire(Bool())
   val flush_IF = Wire(Bool())
   val stall_IF = Wire(Bool())
@@ -203,11 +204,16 @@ class CPU extends Module{
   
   // Detect Module
   // EXE state: when Jump
-  flush_ID := (junion.io.pc_src =/= PC_4) || ((mem_to_reg_EXE === WB_RAM) && (rd_EXE === rs1_ID || rd_EXE === rs2_ID))
-  flush_IF := (junion.io.pc_src =/= PC_4)  
+  val cflt_data = Wire(Bool()) // R型/B型/ebreak/ecall/csrrs->L型 ID->插1个bubble(PC锁)
+  val cflt_ctrl = Wire(Bool()) // B型/J型跳转/mret/ebreak/ecall EX<-插2个bubble(PC不锁)
+  cflt_data := (mem_to_reg_EXE === WB_RAM) && (rd_EXE === rs1_ID || rd_EXE === rs2_ID)
+  cflt_ctrl := junion.io.pc_src =/= PC_4
+
+  flush_ID := cflt_ctrl || cflt_data
+  flush_IF := cflt_ctrl
   // ID state: 
-  stall_IF := (mem_to_reg_EXE === WB_RAM) && (rd_EXE === rs1_ID || rd_EXE === rs2_ID)
-  stall_PC := (mem_to_reg_EXE === WB_RAM) && (rd_EXE === rs1_ID || rd_EXE === rs2_ID)
+  stall_IF := cflt_data
+  stall_PC := cflt_data
 
   // PC module -2
   when(!stall_PC){
@@ -221,4 +227,19 @@ class CPU extends Module{
               PC_CSR              ->csr_pc_MEM
             ))
   }
+
+
+  // for verilator
+  val count_IF  = Wire(UInt(1.W))
+  val count_ID  = RegInit(0.U(1.W))
+  val count_EXE = RegInit(0.U(1.W))
+  val count_MEM = RegInit(0.U(1.W))
+  val count_WB  = RegInit(0.U(1.W))
+  count_IF  := Mux(cflt_ctrl, 1.U(1.W), 0.U(1.W))
+  count_ID  := RegNext(Mux(cflt_data || cflt_ctrl, count_IF, 0.U(1.W)))
+  count_EXE := RegNext(count_ID)
+  count_MEM := RegNext(count_EXE)
+  count_WB  := RegNext(count_MEM)
+  BoringUtils.addSource(count_WB, "dt_counter")
+
 }

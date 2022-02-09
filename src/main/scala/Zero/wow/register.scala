@@ -1,6 +1,6 @@
 package zeroCPU.wow
 import chisel3._
-import chisel3.util._
+import chisel3.util.experimental.BoringUtils
 import zeroCPU.const.ZeroConfig._
 
 class Register() extends Module{
@@ -14,8 +14,13 @@ class Register() extends Module{
 		val data_out2 = Output(UInt(DLEN.W))
 	})
   // Init registers
-    val clock_n = (!clock.asBool).asAsyncReset
+
+  val clock_n = (!clock.asBool).asAsyncReset
 	val v = withReset(clock_n)(RegInit(VecInit(Seq.fill(NREGS)(0.U(DLEN.W)))))
+	
+	//debug
+	BoringUtils.addSource(v, "dt_gprs")
+  
   // write
 	when(io.rd =/= 0.U(NREGS_BIT.W) && io.reg_write){
 		v(io.rd) := io.data_in

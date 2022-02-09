@@ -24,7 +24,7 @@ class Decoder extends Module{
     val rs1         = Output(UInt(NREGS_BIT.W))
     val rs2         = Output(UInt(NREGS_BIT.W))
     val rd          = Output(UInt(NREGS_BIT.W))
-    val csr_index   = Output(UInt(NREGS_BIT.W))
+    val csr_index   = Output(UInt(CSRS_SIZE.W))
   })
   val inst = io.inst
   val signals =
@@ -111,9 +111,9 @@ class Decoder extends Module{
               J_TYPE  ->Cat(0.U(NREGS_BIT.W) , 0.U(NREGS_BIT.W),  inst(11,7)      ),
               B_TYPE  ->Cat(inst(19,15)      , inst(24,20)     ,  0.U(NREGS_BIT.W))
               ))
-  io.rs1 := rs(NREGS_BIT*3, NREGS_BIT*2+1)
-  io.rs2 := rs(NREGS_BIT*2, NREGS_BIT+1)
-  io.rd  := rs(NREGS_BIT  , 1)
+  io.rs1 := rs(NREGS_BIT*3-1, NREGS_BIT*2)
+  io.rs2 := rs(NREGS_BIT*2-1, NREGS_BIT)
+  io.rd  := rs(NREGS_BIT  , 0)
   
   io.csr_index := inst(31,20)
 }

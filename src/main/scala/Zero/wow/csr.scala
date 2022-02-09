@@ -1,7 +1,14 @@
 package zeroCPU.wow
 import chisel3._
-import chisel3.util._
+import chisel3.util.experimental.BoringUtils
 import zeroCPU.const.ZeroConfig._
+
+class CSRState() extends Bundle{
+  val mcause  = UInt(SLEN.W)
+  val mtvec   = UInt(SLEN.W)
+  val mepc    = UInt(SLEN.W)
+  val mstatus = UInt(SLEN.W)
+}
 
 class CSR_MOD extends Module{
   val io = IO(new Bundle{
@@ -17,11 +24,19 @@ class CSR_MOD extends Module{
   /*
     csrrs: t = CSRs[csr]; CSRs[csr] = t | x[rs1]; x[rd] = t
   */
+
+  //debug
   val mcause  = RegInit(0.U(SLEN.W))
   val mtvec   = RegInit(0.U(SLEN.W))
   val mepc    = RegInit(0.U(SLEN.W))
   val mstatus = RegInit(0.U(SLEN.W))
-  
+  val csrs = Wire(new CSRState)
+  csrs.mcause   := mcause
+  csrs.mtvec    := mtvec
+  csrs.mepc     := mepc
+  csrs.mstatus  := mstatus
+  BoringUtils.addSource(csrs, "dt_csrs")
+
   when(io.sig === CSW_REG){
     when(io.csr === CSR_MTVEC){
       io.t := mtvec

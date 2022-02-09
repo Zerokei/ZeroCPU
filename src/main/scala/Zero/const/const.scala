@@ -7,7 +7,9 @@ object ZeroConfig{
   val DLEN = 32 // Length of data
   val SLEN = 32 // Length of csr register
 
-  val NREGS = 5 // number of registers
+  val CINUM = 2 // none or one instruction being executed
+
+  val NREGS = 32 // number of registers
   val NREGS_BIT = log2Ceil(NREGS)
 
   val NOP = "h00000013".U(LEN.W)
