@@ -14,7 +14,9 @@ import zeroCPU.const.ZeroConfig._
 class DiffTestIO extends Bundle{
   val gprs = Output(Vec(NREGS, UInt(DLEN.W)))
   val csrs = Output(new CSRState)
-  val counter   = Output(UInt(1.W))
+  val counter = Output(UInt(1.W))
+  val commom = Output(Vec(3, UInt(DLEN.W)))
+  val finish = Output(Bool())
 }
 class TileForVerilator extends Module{
   val io = IO(new Bundle{
@@ -24,10 +26,21 @@ class TileForVerilator extends Module{
   BoringUtils.addSink(difftest.gprs, "dt_gprs")
   BoringUtils.addSink(difftest.csrs, "dt_csrs")
   BoringUtils.addSink(difftest.counter, "dt_counter")
+  BoringUtils.addSink(difftest.commom(0), "debug0")
+  BoringUtils.addSink(difftest.commom(1), "debug1")
+  BoringUtils.addSink(difftest.commom(2), "debug2")
+
+  difftest.finish := false.B
   io.difftest <> difftest
-  val cpu = Module(new CPU)
-  val rom = Module(new SimRom(2048, "testfile.hex"))
-  val ram = Module(new SimRam(2048))
+
+  // get clocks
+  val nclock = RegInit(0.U(DLEN.W))
+  nclock := nclock + 1.U
+  // BoringUtils.addSource(nclock, "debug0")
+
+  val cpu = Module(new CPU(verilator=true))
+  val rom = Module(new SimRom(verilator=true))
+  val ram = Module(new SimRam(verilator=true))
 
   cpu.io.inst := rom.io.data
   cpu.io.data_in := ram.io.data_o
@@ -41,8 +54,11 @@ object GenTV extends App{
   println("succeed!")
   (new chisel3.stage.ChiselStage).execute(
       Array("-td", "build/verilog/base", "-X", "verilog"), 
+      Seq(ChiselGeneratorAnnotation(() => new CPU())))
+}
+object GenTVDebug extends App{
+  println("succeed!")
+  (new chisel3.stage.ChiselStage).execute(
+      Array("-td", "build/verilog/base", "-X", "verilog"), 
       Seq(ChiselGeneratorAnnotation(() => new TileForVerilator())))
-//  visualize(() => new mux_1)
-  //(new chisel3.stage.ChiselStage).emitVerilog(new CPU())
-  // (new chisel3.stage.ChiselStage).emitVerilog()
 }

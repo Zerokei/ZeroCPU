@@ -1,12 +1,30 @@
 # ZeroCPU
-
-## Description
 The CPU designed by Zerokei :)
 
-## Usage
+## How to use it
 
-generate CPU.v in build/verilog/base automatically
+Generate CPU.v in build/verilog/base automatically
 
 ```shell
-make -j8
+make
+```
+
+
+## Debug
+Generate TieleForVerilator.v in build/verilog/base automatically
+```shell
+make debug
+```
+Verify the code with [ZJV2-difftest](https://github.com/riscv-zju/ZJV2-difftest)
+
+![](https://gitee.com/zerokei/tu-chuang/raw/master/202202121525876.png)
+
+Moreover, we need the [environment](https://github.com/riscv-zju/zjv2-env)
+
+Creat the container and mount directory
+
+Then enter the container
+```shell
+cd ZJV2-difftest
+bash run.sh
 ```

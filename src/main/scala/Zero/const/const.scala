@@ -13,7 +13,6 @@ object ZeroConfig{
   val NREGS_BIT = log2Ceil(NREGS)
 
   val NOP = "h00000013".U(LEN.W)
-
   // AluOp
   val ALU_SIG_LEN = 5
   val ALU_ADD   = 0.U(ALU_SIG_LEN.W)
@@ -39,7 +38,7 @@ object ZeroConfig{
   val PC_X    = 0.U(PC_SIG_LEN.W) // default
 
   // Branch type
-  val BR_SIG_LEN = 3
+  val BR_SIG_LEN = 4
   val BR_N   = 0.U(BR_SIG_LEN.W)  // Next
   val BR_NE  = 1.U(BR_SIG_LEN.W)  // Branch on NotEqual
   val BR_EQ  = 2.U(BR_SIG_LEN.W)  // Branch on Equal
@@ -48,10 +47,10 @@ object ZeroConfig{
   val BR_LT  = 5.U(BR_SIG_LEN.W)  // Branch on Less Than
   val BR_LTU = 6.U(BR_SIG_LEN.W)  // Branch on Less Than Unsigned
   val BR_J   = 7.U(BR_SIG_LEN.W)  // Jump
-  val BR_JR  = 7.U(BR_SIG_LEN.W)  // Jump Register
-  val BR_BK  = 7.U(BR_SIG_LEN.W)  // Ebreak
-  val BR_CA  = 7.U(BR_SIG_LEN.W)  // ecall
-  val BR_RT  = 7.U(BR_SIG_LEN.W)  // mret
+  val BR_JR  = 8.U(BR_SIG_LEN.W)  // Jump Register
+  val BR_BK  = 9.U(BR_SIG_LEN.W)  // Ebreak
+  val BR_CA  = 10.U(BR_SIG_LEN.W)  // ecall
+  val BR_RT  = 11.U(BR_SIG_LEN.W)  // mret
   val BR_X   = 0.U(BR_SIG_LEN.W)  // default
 
   // MemToReg
@@ -96,10 +95,11 @@ object ZeroConfig{
   val FR_X   = 0.U(FR_SIG_LEN.W)  // default
 
   // CSRWrite
-  val CSW_SIG_LEN = 2
-  val CSW_REG = 1.U(CSW_SIG_LEN.W)  // write to CSR csrrs
-  val CSW_BRK = 2.U(CSW_SIG_LEN.W)  // write to CSR ebreak
-  val CSW_CAL = 3.U(CSW_SIG_LEN.W)  // write to CSR ecall
+  val CSW_SIG_LEN = 3
+  val CSW_RED = 1.U(CSW_SIG_LEN.W)  // write to CSR csrrs
+  val CSW_WRT = 2.U(CSW_SIG_LEN.W)  // write to CSR csrrs
+  val CSW_BRK = 3.U(CSW_SIG_LEN.W)  // write to CSR ebreak
+  val CSW_CAL = 4.U(CSW_SIG_LEN.W)  // write to CSR ecall
   val CSW_X   = 0.U(CSW_SIG_LEN.W)  // default
 
   // Type
@@ -121,10 +121,10 @@ object ZeroConfig{
   val FWD_X   = 0.U(FWD_SIG_LEN.W)  // default
 
   val CSRS_SIZE    = 12  
-  val CSR_MSTATUS = "h300".U(CSRS_SIZE)
-  val CSR_MTVEC   = "h305".U(CSRS_SIZE)
-  val CSR_MEPC    = "h340".U(CSRS_SIZE)
-  val CSR_MCAUSE  = "h342".U(CSRS_SIZE)
-  val CSR_F       = "hFFF".U(CSRS_SIZE) // undefined instruction
-  val CSR_X       = "h000".U(CSRS_SIZE)
+  val CSR_MSTATUS = "h300".U(CSRS_SIZE.W)
+  val CSR_MTVEC   = "h305".U(CSRS_SIZE.W)
+  val CSR_MEPC    = "h341".U(CSRS_SIZE.W)
+  val CSR_MCAUSE  = "h342".U(CSRS_SIZE.W)
+  val CSR_F       = "hC00".U(CSRS_SIZE.W) // undefined instruction
+  val CSR_X       = "h000".U(CSRS_SIZE.W)
 }

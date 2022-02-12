@@ -3,7 +3,7 @@ import chisel3._
 import chisel3.util._
 import zeroCPU.const.ZeroConfig._
 
-class ALU extends Module{
+class ALU(verilator: Boolean = false) extends Module{
   val io = IO(new Bundle{
     val in_a = Input(UInt(DLEN.W))
     val in_b = Input(UInt(DLEN.W))

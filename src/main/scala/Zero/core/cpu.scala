@@ -5,13 +5,13 @@ import chisel3.util.experimental.BoringUtils
 import zeroCPU.wow._
 import zeroCPU.const.ZeroConfig._
 
-class CPU extends Module{
+class CPU(verilator: Boolean = false) extends Module{
   val io = IO(new Bundle{
     val inst = Input(UInt(LEN.W)) // inst from rom
     val data_in = Input(UInt(LEN.W)) // ram -> CPU
     val addr_out = Output(UInt(LEN.W)) // CPU -> ram(addr)
     val data_out = Output(UInt(LEN.W)) // CPU -> ram(data)
-    val mem_write = Output(UInt(LEN.W)) // CPU -> ram(mem_write)
+    val mem_write = Output(Bool()) // CPU -> ram(mem_write)
     val pc_out = Output(UInt(LEN.W)) // CPU -> rom(pc)
 	})
   
@@ -26,7 +26,10 @@ class CPU extends Module{
   // PC module -1
   val inst_IF = io.inst
   val dat_MEM = io.data_in
-  val pc_IF = RegInit(0.U(DLEN.W))
+  val pc_IF = 
+    if(verilator)
+      RegInit("h80000000".U(DLEN.W))
+    else RegInit(0.U(DLEN.W))
   val pc_ID   = RegInit(0.U(DLEN.W))
   val inst_ID = RegInit(NOP)
   when(!stall_PC){
@@ -43,13 +46,14 @@ class CPU extends Module{
   val fsig1_EXE = Wire(UInt(FWD_SIG_LEN.W))
   val fsig2_EXE = Wire(UInt(FWD_SIG_LEN.W))
   val mem_data_MEM = Wire(UInt(DLEN.W))
-  val csr_data_MEM =  Wire(UInt(SLEN.W))
-  val csr_pc_MEM   =  Wire(UInt(SLEN.W))
+  val csr_data_EXE =  Wire(UInt(SLEN.W))
+  val csr_pc_EXE   =  Wire(UInt(SLEN.W))
+  val csr_call_for_int = Wire(Bool())
   val reg_data_WB  = Wire(UInt(DLEN.W))
 
 	
   //decoder module
-  val decode = Module(new Decoder())
+  val decode = Module(new Decoder(verilator))
   decode.io.inst := inst_ID
   val pc_src_ID     = decode.io.pc_src
   val branch_sig_ID = decode.io.branch_sig
@@ -58,7 +62,7 @@ class CPU extends Module{
   val op_src1_ID    = decode.io.op_src1
   val op_src2_ID    = decode.io.op_src2
   val alu_op_ID    = decode.io.alu_op
-  val mem_write_ID  = decode.io.mem_to_reg
+  val mem_write_ID  = decode.io.mem_write
   val csr_write_ID  = decode.io.csr_write
 
   val imm_ID        = decode.io.imm
@@ -96,8 +100,9 @@ class CPU extends Module{
   val reg_write_MEM   = RegNext(reg_write_EXE,  false.B)
   val mem_write_MEM   = RegNext(mem_write_EXE,  false.B)
   val mem_to_reg_MEM  = RegNext(mem_to_reg_EXE, 0.U(WB_SIG_LEN.W))
+  val csr_data_MEM    = RegNext(csr_data_EXE, 0.U(SLEN.W)) 
   val csr_write_MEM   = RegNext(csr_write_EXE,  0.U(CSW_SIG_LEN.W))
-
+  
   val alo_WB = RegNext(alo_MEM, 0.U(DLEN.W))
   val rs1_WB = RegNext(rs1_MEM, 0.U(NREGS_BIT.W))
   val rs2_WB = RegNext(rs2_MEM, 0.U(NREGS_BIT.W))
@@ -110,10 +115,10 @@ class CPU extends Module{
   val mem_to_reg_WB   = RegNext(mem_to_reg_MEM, 0.U(WB_SIG_LEN.W))
 
   // register module
-  val reg = Module(new Register())
+  val reg = Module(new Register(verilator))
   reg.io.rs1      := rs1_ID
   reg.io.rs2      := rs2_ID
-  reg.io.rd       := rd_ID
+  reg.io.rd       := rd_WB
   reg.io.reg_write:= reg_write_WB
   reg.io.data_in  := reg_data_WB  
   ro1_ID          := reg.io.data_out1
@@ -121,7 +126,7 @@ class CPU extends Module{
 
 
   // forwarding module
-  val fwd = Module(new Forwarding())
+  val fwd = Module(new Forwarding(verilator))
   fwd.io.rd_MEM   := rd_MEM
   fwd.io.rd_WB    := rd_WB
   fwd.io.rs1_EXE  := rs1_EXE
@@ -133,33 +138,36 @@ class CPU extends Module{
   fsig2_EXE       := fwd.io.fsig2
 
   //  CSR module
-  val csr_mod = Module(new CSR_MOD())
-  csr_mod.io.pc_in  :=  pc_EXE
+  val csr_mod = Module(new CSR_MOD(verilator))
   csr_mod.io.sig    :=  csr_write_EXE
-  csr_mod.io.rd     :=  rd_EXE
   csr_mod.io.csr    :=  csr_index_EXE
-  csr_mod.io.reg    :=  ro1_EXE
-  csr_data_MEM      :=  csr_mod.io.t
-  csr_pc_MEM        :=  csr_mod.io.pc_out
-  
+  csr_mod.io.pc_in  :=  pc_EXE
+  csr_mod.io.data_i :=  mux1_EXE
+  csr_data_EXE      :=  csr_mod.io.data_o
+  csr_pc_EXE        :=  csr_mod.io.pc_out
+  csr_call_for_int  :=  csr_mod.io.call_for_int
+
   //  Forward data
   mux1_EXE := 
     MuxLookup(fsig1_EXE,  ro1_EXE ,
       Array(
             FWD_REG     ->ro1_EXE ,
             FWD_MEM     ->alo_MEM ,
-            FWD_WB      ->dat_WB  ,
+            FWD_WB      ->reg_data_WB ,
             FWD_CSR     ->csr_data_MEM 
           ))
   mux2_EXE := 
-    MuxLookup(fsig1_EXE,  ro2_EXE ,
+    MuxLookup(fsig2_EXE,  ro2_EXE ,
       Array(
             FWD_REG     ->ro2_EXE ,
             FWD_MEM     ->alo_MEM ,
-            FWD_WB      ->dat_WB  ,
+            FWD_WB      ->reg_data_WB ,
             FWD_CSR     ->csr_data_MEM 
           ))
   // Pre for ALU module
+  // BoringUtils.addSource(branch_sig_EXE, "debug0")
+  // BoringUtils.addSource(mux1_EXE, "debug1")
+  // BoringUtils.addSource(mux2_EXE, "debug2")
   ali1_EXE := 
     MuxLookup(op_src1_EXE,  mux1_EXE,
       Array(
@@ -173,18 +181,24 @@ class CPU extends Module{
             OP2_IMM       ->imm_EXE ,
             OP2_PC        ->pc_EXE
           ))
+
   // ALU module
-  val alu = Module(new ALU())
+  val alu = Module(new ALU(verilator))
   alu.io.in_a   :=  ali1_EXE
   alu.io.in_b   :=  ali2_EXE
   alu.io.alu_op :=  alu_op_EXE  
   alo_EXE := alu.io.alu_out
 
   // Jump Union module
-  val junion = Module(new Jump_Union())
+  val junion = Module(new Jump_Union(verilator))
   junion.io.b_type  := branch_sig_EXE
   junion.io.in1     := mux1_EXE
   junion.io.in2     := mux2_EXE
+  junion.io.call_for_int := csr_call_for_int
+
+  // BoringUtils.addSource(pc_IF, "debug1")
+  // BoringUtils.addSource(branch_sig_EXE, "debug2")
+  // BoringUtils.addSource(junion.io.pc_src, "debug1")
 
   // Ram Module
   mem_data_MEM := io.data_in
@@ -197,17 +211,18 @@ class CPU extends Module{
     MuxLookup(mem_to_reg_WB,  alo_WB,
       Array(
             WB_ALU          ->alo_WB,
-            WB_PC4          ->(pc_WB+4.U),
+            WB_PC4          ->(pc_WB + 4.U),
             WB_RAM          ->mem_data_WB,
             WB_CSR          ->csr_data_WB
           ))
-  
+
   // Detect Module
   // EXE state: when Jump
   val cflt_data = Wire(Bool()) // R型/B型/ebreak/ecall/csrrs->L型 ID->插1个bubble(PC锁)
   val cflt_ctrl = Wire(Bool()) // B型/J型跳转/mret/ebreak/ecall EX<-插2个bubble(PC不锁)
   cflt_data := (mem_to_reg_EXE === WB_RAM) && (rd_EXE === rs1_ID || rd_EXE === rs2_ID)
   cflt_ctrl := junion.io.pc_src =/= PC_4
+
 
   flush_ID := cflt_ctrl || cflt_data
   flush_IF := cflt_ctrl
@@ -216,30 +231,41 @@ class CPU extends Module{
   stall_PC := cflt_data
 
   // PC module -2
+
   when(!stall_PC){
     pc_IF :=
-      MuxLookup( junion.io.pc_src,  (pc_EXE + 4.U),
+      MuxLookup( junion.io.pc_src,  (pc_IF + 4.U),
         Array(
-              PC_4                ->(pc_EXE + 4.U),
+              PC_4                ->(pc_IF + 4.U),
               PC_B                ->alo_EXE,
               PC_J                ->alo_EXE,
-              PC_JR               ->((alo_EXE) & (~1.U)),
-              PC_CSR              ->csr_pc_MEM
+              PC_JR               ->(alo_EXE & (~1.U(DLEN.W))),
+              PC_CSR              ->csr_pc_EXE
             ))
   }
 
-
   // for verilator
-  val count_IF  = Wire(UInt(1.W))
+  val count_IF  = RegInit(1.U(1.W))
   val count_ID  = RegInit(0.U(1.W))
   val count_EXE = RegInit(0.U(1.W))
   val count_MEM = RegInit(0.U(1.W))
   val count_WB  = RegInit(0.U(1.W))
-  count_IF  := Mux(cflt_ctrl, 1.U(1.W), 0.U(1.W))
-  count_ID  := RegNext(Mux(cflt_data || cflt_ctrl, count_IF, 0.U(1.W)))
-  count_EXE := RegNext(count_ID)
-  count_MEM := RegNext(count_EXE)
-  count_WB  := RegNext(count_MEM)
-  BoringUtils.addSource(count_WB, "dt_counter")
+  count_ID  := Mux(cflt_ctrl, 0.U(1.W), count_IF)
+  count_EXE  := Mux(cflt_data || cflt_ctrl, 0.U(1.W), count_ID)
+  count_MEM := count_EXE
+  count_WB  := count_MEM
+  val count_F = RegNext(count_WB, 0.U(1.W))
+  if(verilator){
+    BoringUtils.addSource(count_F, "dt_counter")
+  }
 
+
+  //debug
+  if(verilator){
+    val inst_EXE = RegNext(inst_ID)
+    BoringUtils.addSource(pc_EXE, "debug0")
+    // BoringUtils.addSource(mux1_EXE, "debug1")
+    // BoringUtils.addSource(fsig1_EXE, "debug2")
+    // BoringUtils.addSource(pc_ID, "debug2")
+  }
 }
