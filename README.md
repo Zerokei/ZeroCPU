@@ -17,7 +17,7 @@ make debug
 ```
 Verify the code with [ZJV2-difftest](https://github.com/riscv-zju/ZJV2-difftest)
 
-![](https://gitee.com/zerokei/tu-chuang/raw/master/202202121525876.png)
+![](https://s2.loli.net/2022/02/22/ZCpk63r7xMVS2Pu.png)
 
 Moreover, we need the [environment](https://github.com/riscv-zju/zjv2-env)
 
@@ -29,4 +29,4 @@ cd ZJV2-difftest
 bash run.sh
 ```
 ## Design
-![](https://gitee.com/zerokei/tu-chuang/raw/master/202202171948123.png)
+![](https://s2.loli.net/2022/02/22/Em4OnDS9kfwxMoP.png)
