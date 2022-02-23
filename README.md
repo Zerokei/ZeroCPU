@@ -29,4 +29,5 @@ cd ZJV2-difftest
 bash run.sh
 ```
 ## Design
+![](https://s2.loli.net/2022/02/23/jakuWtvDfHFZYcV.png)
 ![](https://s2.loli.net/2022/02/22/Em4OnDS9kfwxMoP.png)
