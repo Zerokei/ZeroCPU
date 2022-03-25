@@ -4,40 +4,45 @@ import chisel3.util._
 import chisel3.util.experimental.BoringUtils
 import zeroCPU.wow._
 import zeroCPU.const.ZeroConfig._
+import zeroCPU.utils._
+import zeroCPU.cache._
 
 class CPU(verilator: Boolean = false) extends Module{
   val io = IO(new Bundle{
-    val inst = Input(UInt(LEN.W)) // inst from rom
-    val data_in = Input(UInt(LEN.W)) // ram -> CPU
-    val addr_out = Output(UInt(LEN.W)) // CPU -> ram(addr)
-    val data_out = Output(UInt(LEN.W)) // CPU -> ram(data)
-    val mem_write = Output(Bool()) // CPU -> ram(mem_write)
-    val pc_out = Output(UInt(LEN.W)) // CPU -> rom(pc)
+    val rom = Flipped(new RomIO())
+    val ram = Flipped(new RamIO())
 	})
-  
-  val flush_ID = Wire(Bool())
-  val flush_IF = Wire(Bool())
-  val stall_IF = Wire(Bool())
-  val stall_PC = Wire(Bool())
+  val icache  = Module(new ICache())
+  val dcache  = Module(new DCache())
+  val alu     = Module(new ALU(verilator))
+  val csr_mod = Module(new CSR_MOD(verilator))
+  val decode  = Module(new Decoder(verilator))
+  val reg     = Module(new Register(verilator))
+  val fwd     = Module(new Forwarding(verilator))
+  val junion  = Module(new Jump_Union(verilator))
+
+  val flush_ID  = Wire(Bool())
+  val flush_IF  = Wire(Bool())
+  val stall_WB  = Wire(Bool())
+  val stall_MEM = Wire(Bool())
+  val stall_EXE = Wire(Bool())
+  val stall_ID  = Wire(Bool())
+  val stall_IF  = Wire(Bool())
+  val stall_PC  = Wire(Bool())
 
   val ro1_ID   = Wire(UInt(DLEN.W))
   val ro2_ID   = Wire(UInt(DLEN.W))
 
-  // PC module -1
-  val inst_IF = io.inst
-  val dat_MEM = io.data_in
+  val inst_IF = Wire(UInt(DLEN.W))
   val pc_IF = 
     if(verilator)
       RegInit("h80000000".U(DLEN.W))
-    else RegInit(0.U(DLEN.W))
+    else 
+      RegInit(0.U(DLEN.W))
   val pc_ID   = RegInit(0.U(DLEN.W))
   val inst_ID = RegInit(NOP)
-  when(!stall_PC){
-    pc_ID   := Mux(flush_IF, 0.U(DLEN.W), pc_IF)
-    inst_ID := Mux(flush_IF, NOP, inst_IF)
-  }
-  io.pc_out := pc_IF
 
+  // Wires Definition
   val mux1_EXE = Wire(UInt(DLEN.W))
   val mux2_EXE = Wire(UInt(DLEN.W))
   val ali1_EXE = Wire(UInt(DLEN.W))
@@ -53,7 +58,6 @@ class CPU(verilator: Boolean = false) extends Module{
 
 	
   //decoder module
-  val decode = Module(new Decoder(verilator))
   decode.io.inst := inst_ID
   val pc_src_ID     = decode.io.pc_src
   val branch_sig_ID = decode.io.branch_sig
@@ -61,61 +65,56 @@ class CPU(verilator: Boolean = false) extends Module{
   val reg_write_ID  = decode.io.reg_write
   val op_src1_ID    = decode.io.op_src1
   val op_src2_ID    = decode.io.op_src2
-  val alu_op_ID    = decode.io.alu_op
-  val mem_write_ID  = decode.io.mem_write
+  val alu_op_ID     = decode.io.alu_op
+  val mem_op_ID     = decode.io.mem_op
   val csr_write_ID  = decode.io.csr_write
-
   val imm_ID        = decode.io.imm
-
   val rs1_ID        = decode.io.rs1
   val rs2_ID        = decode.io.rs2
   val rd_ID         = decode.io.rd
   val csr_index_ID  = decode.io.csr_index
 
+  // Registers Definition
+  val ro1_EXE = RegEnable(Mux(flush_ID, 0.U(DLEN.W), ro1_ID), 0.U(DLEN.W), !stall_EXE)
+  val ro2_EXE = RegEnable(Mux(flush_ID, 0.U(DLEN.W), ro2_ID), 0.U(DLEN.W), !stall_EXE)
+  val rs1_EXE = RegEnable(Mux(flush_ID, 0.U(NREGS_BIT.W), rs1_ID), 0.U(NREGS_BIT.W), !stall_EXE)
+  val rs2_EXE = RegEnable(Mux(flush_ID, 0.U(NREGS_BIT.W), rs2_ID), 0.U(NREGS_BIT.W), !stall_EXE)
+  val rd_EXE  = RegEnable(Mux(flush_ID, 0.U(NREGS_BIT.W), rd_ID),  0.U(NREGS_BIT.W), !stall_EXE)
+  val pc_EXE  = RegEnable(Mux(flush_ID, 0.U(DLEN.W), pc_ID),  0.U(LEN.W), !stall_EXE)
+  val imm_EXE = RegEnable(Mux(flush_ID, 0.U(DLEN.W), imm_ID), 0.U(DLEN.W), !stall_EXE)
+  val op_src1_EXE     = RegEnable(Mux(flush_ID, OP1_X, op_src1_ID), 0.U(OP1_SIG_LEN.W), !stall_EXE)
+  val op_src2_EXE     = RegEnable(Mux(flush_ID, OP2_X, op_src2_ID), 0.U(OP2_SIG_LEN.W), !stall_EXE)
+  val reg_write_EXE   = RegEnable(Mux(flush_ID, REN_X, reg_write_ID), false.B, !stall_EXE)
+  val mem_op_EXE      = RegEnable(Mux(flush_ID, MEM_X,  mem_op_ID), false.B, !stall_EXE)
+  val branch_sig_EXE  = RegEnable(Mux(flush_ID, BR_X,  branch_sig_ID), 0.U(BR_SIG_LEN.W), !stall_EXE)
+  val csr_write_EXE   = RegEnable(Mux(flush_ID, CSW_X, csr_write_ID),  0.U(CSW_SIG_LEN.W), !stall_EXE)
+  val csr_index_EXE   = RegEnable(Mux(flush_ID, CSR_X, csr_index_ID),  0.U(CSRS_SIZE.W), !stall_EXE)
+  val alu_op_EXE      = RegEnable(Mux(flush_ID, ALU_X, alu_op_ID), 0.U(ALU_SIG_LEN.W), !stall_EXE)
+  val mem_to_reg_EXE  = RegEnable(Mux(flush_ID, WB_X, mem_to_reg_ID), 0.U(WB_SIG_LEN.W), !stall_EXE)
 
-
-  val ro1_EXE = RegNext(Mux(flush_ID, 0.U(DLEN.W), ro1_ID), 0.U(DLEN.W))
-  val ro2_EXE = RegNext(Mux(flush_ID, 0.U(DLEN.W), ro2_ID), 0.U(DLEN.W))
-  val rs1_EXE = RegNext(Mux(flush_ID, 0.U(NREGS_BIT.W), rs1_ID), 0.U(NREGS_BIT.W))
-  val rs2_EXE = RegNext(Mux(flush_ID, 0.U(NREGS_BIT.W), rs2_ID), 0.U(NREGS_BIT.W))
-  val rd_EXE  = RegNext(Mux(flush_ID, 0.U(NREGS_BIT.W), rd_ID),  0.U(NREGS_BIT.W))
-  val pc_EXE  = RegNext(Mux(flush_ID, 0.U(DLEN.W), pc_ID),  0.U(LEN.W))
-  val imm_EXE = RegNext(Mux(flush_ID, 0.U(DLEN.W), imm_ID), 0.U(DLEN.W))
-  val op_src1_EXE     = RegNext(Mux(flush_ID, OP1_X, op_src1_ID), 0.U(OP1_SIG_LEN.W))
-  val op_src2_EXE     = RegNext(Mux(flush_ID, OP2_X, op_src2_ID), 0.U(OP2_SIG_LEN.W))
-  val reg_write_EXE   = RegNext(Mux(flush_ID, REN_X, reg_write_ID), false.B)
-  val mem_write_EXE   = RegNext(Mux(flush_ID, MW_X,  mem_write_ID), false.B)
-  val branch_sig_EXE  = RegNext(Mux(flush_ID, BR_X,  branch_sig_ID), 0.U(BR_SIG_LEN.W))
-  val csr_write_EXE   = RegNext(Mux(flush_ID, CSW_X, csr_write_ID),  0.U(CSW_SIG_LEN.W))
-  val csr_index_EXE   = RegNext(Mux(flush_ID, CSR_X, csr_index_ID),  0.U(CSRS_SIZE.W))
-  val alu_op_EXE      = RegNext(Mux(flush_ID, ALU_X, alu_op_ID), 0.U(ALU_SIG_LEN.W))
-  val mem_to_reg_EXE  = RegNext(Mux(flush_ID, WB_X, mem_to_reg_ID), 0.U(WB_SIG_LEN.W))
-
-  val mux2_MEM  = RegNext(mux2_EXE, 0.U(DLEN.W))
-  val rs1_MEM   = RegNext(rs1_EXE,  0.U(NREGS_BIT.W))
-  val rs2_MEM   = RegNext(rs2_EXE,  0.U(NREGS_BIT.W))
-  val rd_MEM    = RegNext(rd_EXE,   0.U(NREGS_BIT.W))
-  val pc_MEM    = RegNext(pc_EXE,   0.U(DLEN.W))
-  val alo_MEM   = RegNext(alo_EXE,  0.U(DLEN.W))
-  val reg_write_MEM   = RegNext(reg_write_EXE,  false.B)
-  val mem_write_MEM   = RegNext(mem_write_EXE,  false.B)
-  val mem_to_reg_MEM  = RegNext(mem_to_reg_EXE, 0.U(WB_SIG_LEN.W))
-  val csr_data_MEM    = RegNext(csr_data_EXE, 0.U(SLEN.W)) 
-  val csr_write_MEM   = RegNext(csr_write_EXE,  0.U(CSW_SIG_LEN.W))
+  val mux2_MEM  = RegEnable(mux2_EXE, 0.U(DLEN.W), !stall_MEM)
+  val rs1_MEM   = RegEnable(rs1_EXE,  0.U(NREGS_BIT.W), !stall_MEM)
+  val rs2_MEM   = RegEnable(rs2_EXE,  0.U(NREGS_BIT.W), !stall_MEM)
+  val rd_MEM    = RegEnable(rd_EXE,   0.U(NREGS_BIT.W), !stall_MEM)
+  val pc_MEM    = RegEnable(pc_EXE,   0.U(DLEN.W), !stall_MEM)
+  val alo_MEM   = RegEnable(alo_EXE,  0.U(DLEN.W), !stall_MEM)
+  val reg_write_MEM   = RegEnable(reg_write_EXE,  false.B, !stall_MEM)
+  val mem_op_MEM      = RegEnable(mem_op_EXE,     false.B, !stall_MEM)
+  val mem_to_reg_MEM  = RegEnable(mem_to_reg_EXE, 0.U(WB_SIG_LEN.W), !stall_MEM)
+  val csr_data_MEM    = RegEnable(csr_data_EXE, 0.U(SLEN.W), !stall_MEM) 
+  val csr_write_MEM   = RegEnable(csr_write_EXE,  0.U(CSW_SIG_LEN.W), !stall_MEM)
   
-  val alo_WB = RegNext(alo_MEM, 0.U(DLEN.W))
-  val rs1_WB = RegNext(rs1_MEM, 0.U(NREGS_BIT.W))
-  val rs2_WB = RegNext(rs2_MEM, 0.U(NREGS_BIT.W))
-  val rd_WB  = RegNext(rd_MEM,  0.U(NREGS_BIT.W))
-  val pc_WB  = RegNext(pc_MEM,  0.U(DLEN.W))
-  val dat_WB = RegNext(dat_MEM, 0.U(DLEN.W))
-  val mem_data_WB     = RegNext(mem_data_MEM, 0.U(DLEN.W))
-  val csr_data_WB     = RegNext(csr_data_MEM, 0.U(SLEN.W)) 
-  val reg_write_WB    = RegNext(reg_write_MEM, false.B) 
-  val mem_to_reg_WB   = RegNext(mem_to_reg_MEM, 0.U(WB_SIG_LEN.W))
+  val alo_WB = RegEnable(alo_MEM, 0.U(DLEN.W), !stall_WB)
+  val rs1_WB = RegEnable(rs1_MEM, 0.U(NREGS_BIT.W), !stall_WB)
+  val rs2_WB = RegEnable(rs2_MEM, 0.U(NREGS_BIT.W), !stall_WB)
+  val rd_WB  = RegEnable(rd_MEM,  0.U(NREGS_BIT.W), !stall_WB)
+  val pc_WB  = RegEnable(pc_MEM,  0.U(DLEN.W), !stall_WB)
+  val mem_data_WB     = RegEnable(mem_data_MEM, 0.U(DLEN.W), !stall_WB)
+  val csr_data_WB     = RegEnable(csr_data_MEM, 0.U(SLEN.W), !stall_WB) 
+  val reg_write_WB    = RegEnable(reg_write_MEM, false.B, !stall_WB) 
+  val mem_to_reg_WB   = RegEnable(mem_to_reg_MEM, 0.U(WB_SIG_LEN.W), !stall_WB)
 
   // register module
-  val reg = Module(new Register(verilator))
   reg.io.rs1      := rs1_ID
   reg.io.rs2      := rs2_ID
   reg.io.rd       := rd_WB
@@ -126,7 +125,6 @@ class CPU(verilator: Boolean = false) extends Module{
 
 
   // forwarding module
-  val fwd = Module(new Forwarding(verilator))
   fwd.io.rd_MEM   := rd_MEM
   fwd.io.rd_WB    := rd_WB
   fwd.io.rs1_EXE  := rs1_EXE
@@ -138,7 +136,6 @@ class CPU(verilator: Boolean = false) extends Module{
   fsig2_EXE       := fwd.io.fsig2
 
   //  CSR module
-  val csr_mod = Module(new CSR_MOD(verilator))
   csr_mod.io.sig    :=  csr_write_EXE
   csr_mod.io.csr    :=  csr_index_EXE
   csr_mod.io.pc_in  :=  pc_EXE
@@ -164,10 +161,8 @@ class CPU(verilator: Boolean = false) extends Module{
             FWD_WB      ->reg_data_WB ,
             FWD_CSR     ->csr_data_MEM 
           ))
+
   // Pre for ALU module
-  // BoringUtils.addSource(branch_sig_EXE, "debug0")
-  // BoringUtils.addSource(mux1_EXE, "debug1")
-  // BoringUtils.addSource(mux2_EXE, "debug2")
   ali1_EXE := 
     MuxLookup(op_src1_EXE,  mux1_EXE,
       Array(
@@ -183,28 +178,16 @@ class CPU(verilator: Boolean = false) extends Module{
           ))
 
   // ALU module
-  val alu = Module(new ALU(verilator))
   alu.io.in_a   :=  ali1_EXE
   alu.io.in_b   :=  ali2_EXE
   alu.io.alu_op :=  alu_op_EXE  
   alo_EXE := alu.io.alu_out
 
   // Jump Union module
-  val junion = Module(new Jump_Union(verilator))
   junion.io.b_type  := branch_sig_EXE
   junion.io.in1     := mux1_EXE
   junion.io.in2     := mux2_EXE
   junion.io.call_for_int := csr_call_for_int
-
-  // BoringUtils.addSource(pc_IF, "debug1")
-  // BoringUtils.addSource(branch_sig_EXE, "debug2")
-  // BoringUtils.addSource(junion.io.pc_src, "debug1")
-
-  // Ram Module
-  mem_data_MEM := io.data_in
-  io.mem_write := mem_write_MEM
-  io.addr_out := alo_MEM
-  io.data_out := mux2_MEM
 
   // WB state
   reg_data_WB := 
@@ -216,23 +199,44 @@ class CPU(verilator: Boolean = false) extends Module{
             WB_CSR          ->csr_data_WB
           ))
 
+  dcache.io.ram <> io.ram
+  icache.io.rom <> io.rom
+
+  // Rom Module
+  icache.io.addr   := pc_IF
+  inst_IF          := icache.io.data
+  val icache_stall  = icache.io.stall
+  // Ram Module
+  dcache.io.valid  := mem_op_MEM =/= MEM_X
+  dcache.io.wen    := mem_op_MEM === MEM_WRT
+  dcache.io.addr   := alo_MEM
+  dcache.io.data_i := mux2_MEM
+  mem_data_MEM     := dcache.io.data_o
+  val dcache_stall  = dcache.io.stall
+
   // Detect Module
   // EXE state: when Jump
+  val cflt_cach = Wire(Bool()) // stall from dcache and icache
   val cflt_data = Wire(Bool()) // R型/B型/ebreak/ecall/csrrs->L型 ID->插1个bubble(PC锁)
   val cflt_ctrl = Wire(Bool()) // B型/J型跳转/mret/ebreak/ecall EX<-插2个bubble(PC不锁)
+  cflt_cach := icache_stall || dcache_stall
   cflt_data := (mem_to_reg_EXE === WB_RAM) && (rd_EXE === rs1_ID || rd_EXE === rs2_ID)
   cflt_ctrl := junion.io.pc_src =/= PC_4
-
 
   flush_ID := cflt_ctrl || cflt_data
   flush_IF := cflt_ctrl
   // ID state: 
-  stall_IF := cflt_data
-  stall_PC := cflt_data
+  stall_WB  := cflt_cach
+  stall_MEM := cflt_cach
+  stall_EXE := cflt_cach
+  stall_ID  := cflt_cach
+  stall_IF  := cflt_cach || cflt_data
+  stall_PC  := cflt_cach || cflt_data
 
   // PC module -2
-
   when(!stall_PC){
+    pc_ID   := RegEnable(Mux(flush_IF, 0.U(DLEN.W), pc_IF), stall_ID)
+    inst_ID := RegEnable(Mux(flush_IF, NOP, inst_IF), stall_ID)
     pc_IF :=
       MuxLookup( junion.io.pc_src,  (pc_IF + 4.U),
         Array(
@@ -243,6 +247,7 @@ class CPU(verilator: Boolean = false) extends Module{
               PC_CSR              ->csr_pc_EXE
             ))
   }
+
 
   // for verilator
   val count_IF  = RegInit(1.U(1.W))
@@ -255,10 +260,10 @@ class CPU(verilator: Boolean = false) extends Module{
   count_MEM := count_EXE
   count_WB  := count_MEM
   val count_F = RegNext(count_WB, 0.U(1.W))
+  
   if(verilator){
     BoringUtils.addSource(count_F, "dt_counter")
   }
-
 
   //debug
   if(verilator){

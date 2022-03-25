@@ -42,12 +42,8 @@ class TileForVerilator extends Module{
   val rom = Module(new SimRom(verilator=true))
   val ram = Module(new SimRam(verilator=true))
 
-  cpu.io.inst := rom.io.data
-  cpu.io.data_in := ram.io.data_o
-  ram.io.addr := cpu.io.addr_out
-  rom.io.addr := cpu.io.pc_out
-  ram.io.data_i := cpu.io.data_out
-  ram.io.we := cpu.io.mem_write
+  rom.io <> cpu.io.rom
+  ram.io <> cpu.io.ram
 }
 
 object GenTV extends App{

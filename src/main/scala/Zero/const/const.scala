@@ -12,7 +12,20 @@ object ZeroConfig{
   val NREGS = 32 // number of registers
   val NREGS_BIT = log2Ceil(NREGS)
 
+  val CACOUNTS  = 128
+  val CAMASK    = 127.U
+  val INDEX_LEN = 7
+  val TAG_LEN   = DLEN-INDEX_LEN
+
   val NOP = "h00000013".U(LEN.W)
+  
+  // Cache auto mechine
+  val WAIT_SIG_LEN   = 2
+  val WAIT_NOTHING    = 0.U(WAIT_SIG_LEN.W)
+  val WAIT_WRITE_OLD = 1.U(WAIT_SIG_LEN.W)
+  val WAIT_READ_NEW  = 2.U(WAIT_SIG_LEN.W)
+
+  
   // AluOp
   val ALU_SIG_LEN = 5
   val ALU_ADD   = 0.U(ALU_SIG_LEN.W)
@@ -78,9 +91,11 @@ object ZeroConfig{
   val REN_Y = true.B // enable write to register
   val REN_X = false.B // default
 
-  // MemWrite
-  val MW_Y = true.B  // memory write
-  val MW_X = false.B  // default
+  // Mem operations
+  val MEM_SIG_LEN = 2
+  val MEM_X   = 0.U(MEM_SIG_LEN.W)  // default
+  val MEM_WRT = 1.U(MEM_SIG_LEN.W)  // memory write
+  val MEM_RED = 2.U(MEM_SIG_LEN.W)  // memory read
 
   // PcLock
   val PCL_Y = true.B // lock pc
