@@ -104,6 +104,7 @@ bool difftest_regs (qemu_regs_t *regs, qemu_regs_t *dut_regs, diff_pcs *dut_pcs)
 
     for (int i = 33; i < regs_count; i++) {
         if (i == 33 || i == 43) { continue; }   // skip `mstatus` and `sstatus`
+        if (i == 38 || i == 40 || i == 41) { continue; }// zerokei : skip `mtvec` `mepc` `mcause`
         if ((uint32_t)regs->array[i] != (uint32_t)dut_regs->array[i]) {
             sleep(0.5);
             for (int j = 0; j < 3; j++) {
@@ -241,7 +242,7 @@ int difftest_body(const char *path, int port) {
         dut_sync_reg(0, 0, false);
 
         while (dut_commit() == 0) {
-            printf(":commom:0x%016lx,0x%016lx,0x%016lx\n", dut_getcommom(0), dut_getcommom(1), dut_getcommom(2));
+            printf(":commom:0x%08lx,0x%08lx,0x%08lx,0x%08lx\n", dut_getcommom(0), dut_getcommom(1), dut_getcommom(2), dut_getcommom(3));
             dut_step(1, vfp, contextp);
             if (check_and_close_difftest(conn, vfp, contextp))
                 return 0;
@@ -286,7 +287,7 @@ int difftest_body(const char *path, int port) {
 #endif
         }
         // printf("total_instructions = %d\n", total_instructions);
-        printf("$commom:0x%016lx,0x%016lx,0x%016lx\n", dut_getcommom(0), dut_getcommom(1), dut_getcommom(2));
+        printf("$commom:0x%08lx,0x%08lx,0x%08lx,0x%08lx\n", dut_getcommom(0), dut_getcommom(1), dut_getcommom(2), dut_getcommom(3));
         qemu_getregs(conn, &regs);
 
         dut_getregs(&dut_regs);
@@ -299,7 +300,7 @@ int difftest_body(const char *path, int port) {
             // qemu_getmem(conn, 0x2004000);
             print_qemu_registers(&regs, true);
             printf("\nDUT\n");
-            printf("$commom:0x%016lx,0x%016lx,0x%016lx\n", dut_getcommom(0), dut_getcommom(1), dut_getcommom(2));
+            printf("$commom:0x%08lx,0x%08lx,0x%08lx,0x%08lx\n", dut_getcommom(0), dut_getcommom(1), dut_getcommom(2), dut_getcommom(3));
             for (int i = 0; i < 3; i++) {
                 printf("$pc_%d:0x%016lx  ", i, dut_pcs.mycpu_pcs[i]);
             }

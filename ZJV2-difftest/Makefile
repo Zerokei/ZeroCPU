@@ -19,8 +19,8 @@ VERILATOR_CXXFLAGS	:=	-O3 -std=c++11 -fpermissive -g -I$(VERILATOR_CSRC_DIR) -I$
 VERILATOR_LDFLAGS 	:=	-Wl,--export-dynamic -lpthread -ldl
 VERILATOR_SOURCE 	:=  $(sort $(wildcard $(VERILATOR_CSRC_DIR)/*.cpp)) $(sort $(wildcard $(VERILATOR_CSRC_DIR)/*.c))
 
+#				   --threads 8 
 VERILATOR_FLAGS := --cc --exe --trace --top-module TileForVerilator	\
-				  --threads 8 \
 				  --assert --x-assign unique    \
 				  --output-split 20000 -O3    	\
 				  -I$(VERILATOR_VSRC_DIR) 	  	\

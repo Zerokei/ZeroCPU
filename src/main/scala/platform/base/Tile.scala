@@ -15,7 +15,7 @@ class DiffTestIO extends Bundle{
   val gprs = Output(Vec(NREGS, UInt(DLEN.W)))
   val csrs = Output(new CSRState)
   val counter = Output(UInt(1.W))
-  val commom = Output(Vec(3, UInt(DLEN.W)))
+  val commom = Output(Vec(4, UInt(DLEN.W)))
   val finish = Output(Bool())
 }
 class TileForVerilator extends Module{
@@ -29,6 +29,7 @@ class TileForVerilator extends Module{
   BoringUtils.addSink(difftest.commom(0), "debug0")
   BoringUtils.addSink(difftest.commom(1), "debug1")
   BoringUtils.addSink(difftest.commom(2), "debug2")
+  BoringUtils.addSink(difftest.commom(3), "debug3")
 
   difftest.finish := false.B
   io.difftest <> difftest

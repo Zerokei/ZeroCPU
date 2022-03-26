@@ -19,7 +19,7 @@ class Forwarding(verilator: Boolean = false) extends Module{
     val fsig2   = Output(UInt(FWD_SIG_LEN.W))
   })
 
-  when((io.rs1_EXE === io.rd_MEM) && (io.csw_MEM =/= CSW_X) && (io.rd_MEM =/= 0.U)){
+  when((io.rs1_EXE === io.rd_MEM) && (io.csw_MEM === CSW_RED) && (io.rd_MEM =/= 0.U)){
     io.fsig1 := FWD_CSR
   }.elsewhen((io.rs1_EXE === io.rd_MEM) && (io.rd_MEM =/= 0.U)){
     io.fsig1 := FWD_MEM
@@ -29,7 +29,7 @@ class Forwarding(verilator: Boolean = false) extends Module{
     io.fsig1 := FWD_X  
   }
 
-  when((io.rs2_EXE === io.rd_MEM) && (io.csw_MEM =/= CSW_X) && (io.rd_MEM =/= 0.U)){
+  when((io.rs2_EXE === io.rd_MEM) && (io.csw_MEM === CSW_RED) && (io.rd_MEM =/= 0.U)){
     io.fsig2 := FWD_CSR
   }.elsewhen((io.rs2_EXE === io.rd_MEM) && (io.rd_MEM =/= 0.U)){
     io.fsig2 := FWD_MEM

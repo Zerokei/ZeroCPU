@@ -2,11 +2,13 @@ package zeroCPU.cache
 import chisel3._
 import chisel3.util._
 import zeroCPU.utils._
+import chisel3.util.experimental.BoringUtils
 import zeroCPU.const.ZeroConfig._
 
 
 class ICacheIO extends Bundle{
 	val rom	 		= Flipped(new RomIO())
+  val valid   = Input(Bool())
   val addr    = Input(UInt(DLEN.W))
 	val data  	= Output(UInt(DLEN.W))
   val stall		= Output(Bool())
@@ -15,39 +17,51 @@ class ICache extends Module{
   val io = IO(new ICacheIO())
   val regs = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(DLEN.W))))
   val tags = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(TAG_LEN.W))))
+  val valids = RegInit(VecInit(Seq.fill(CACOUNTS)(false.B)))
   
-  val addr  = RegInit(0.U(DLEN.W))
-  val data  = RegInit(0.U(DLEN.W))
-  val wait_type = RegInit(0.U(WAIT_SIG_LEN.W))
-  val data_out  = RegInit(0.U(DLEN.W)) 
+  val wait_type = RegInit(WAIT_NOTHING)
 
   val index = Wire(UInt(INDEX_LEN.W))
   val tag   = Wire(UInt(TAG_LEN.W))
-  index := addr & CAMASK
-  tag   := addr >> INDEX_LEN
+  index := io.addr & CAMASK
+  tag   := io.addr >> INDEX_LEN
 
-  val rom_addr = RegInit(0.U(DLEN.W))
-  io.rom.addr := rom_addr
-
-  when(wait_type === WAIT_READ_NEW){
-    when(io.rom.valid){
-      wait_type     := WAIT_NOTHING
+  when(wait_type === WAIT_NOTHING){//wait for query
+    when(io.valid){
+      when(valids(index) && tags(index) === tag){//hit
+        io.rom.addr := 0.U(DLEN.W)
+        io.stall    := false.B
+        io.data     := regs(index)
+      }.otherwise{// miss
+        valids(index) := true.B
+        io.rom.addr   := io.addr
+        io.stall      := true.B
+        io.data       := 0.U(DLEN.W)
+        wait_type     := WAIT_READ_NEW
+      }
+    }.otherwise{// no query
+      io.rom.addr   := 0.U(DLEN.W)
+      io.stall      := false.B
+      io.data       := regs(index)
+    }
+  }.elsewhen(wait_type === WAIT_READ_NEW){//wait for rom (already or not ready)
+    // when(io.rom.valid){// rom write back
+      io.rom.addr   := io.addr  // because it is Combinatorial logic
+      io.stall      := false.B
+      io.data       := io.rom.data
       tags(index)   := tag
       regs(index)   := io.rom.data
-      data_out := io.rom.data
-    }
-  }.elsewhen(wait_type === WAIT_NOTHING){
-    addr  := io.addr
-    data  := io.data
-    when(tags(index) === tag){//hit
-      data_out      := regs(index)
-    }.otherwise{
-      rom_addr   := addr
-      wait_type := WAIT_READ_NEW
-    }
+      wait_type     := WAIT_NOTHING
+    // }.otherwise{// wait for rom
+    //   io.rom.addr   := 0.U(DLEN.W)
+    //   io.stall      := true.B
+    //   io.data       := 0.U(DLEN.W)
+    // }
+  }.otherwise{// exception
+    io.rom.addr     := 0.U(DLEN.W)
+    io.stall        := true.B
+    io.data         := 0.U(DLEN.W)
   }
-  io.stall := (wait_type =/= WAIT_NOTHING)
-  io.data := data_out
 }
 
 class DCacheIO extends Bundle{
@@ -63,80 +77,122 @@ class DCache extends Module{
   val io = IO(new DCacheIO())
   val regs = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(DLEN.W))))
   val tags = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(TAG_LEN.W))))
+  val valids = RegInit(VecInit(Seq.fill(CACOUNTS)(false.B)))
   val dirtys = RegInit(VecInit(Seq.fill(CACOUNTS)(false.B)))
   
-  val addr  = RegInit(0.U(DLEN.W))
-  val data  = RegInit(0.U(DLEN.W))
-  val wen   = RegInit(false.B)
   val wait_type = RegInit(0.U(WAIT_SIG_LEN.W))
-  val data_out  = RegInit(0.U(DLEN.W)) 
-  io.data_o := data_out
 
   val index = Wire(UInt(INDEX_LEN.W))
   val tag   = Wire(UInt(TAG_LEN.W))
-  index := addr & CAMASK
-  tag   := addr >> INDEX_LEN
-
-  val ram_data_i = RegInit(0.U(DLEN.W))
-  val ram_addr   = RegInit(0.U(DLEN.W))
-  val ram_wen    = RegInit(false.B)
-  io.ram.data_i := ram_data_i
-  io.ram.addr   := ram_addr
-  io.ram.wen    := ram_wen
+  index := io.addr & CAMASK
+  tag   := io.addr >> INDEX_LEN
 
   when(wait_type === WAIT_NOTHING){
     when(io.valid){
-      wen   := io.wen
-      addr  := io.addr
-      data  := io.data_i
-
       when(io.wen){//write
-        when(tags(index) === tag){//hit
-          tags(index)   := tag
-          regs(index)   := data
-          dirtys(index) := true.B
+        when(valids(index) && tags(index) === tag){//hit
+          tags(index)     := tag
+          regs(index)     := io.data_i
+          dirtys(index)   := true.B
+          io.data_o       := 0.U(DLEN.W)
+          io.stall        := false.B
+          io.ram.addr     := 0.U(DLEN.W)
+          io.ram.wen      := false.B
+          io.ram.data_i   := 0.U(DLEN.W)
         }.elsewhen(dirtys(index) === false.B){//miss & clean
-          ram_data_i   := addr
-          wait_type := WAIT_READ_NEW
+          valids(index)   := true.B
+          wait_type       := WAIT_READ_NEW
+          io.data_o       := 0.U(DLEN.W)
+          io.stall        := true.B
+          io.ram.addr     := io.addr
+          io.ram.wen      := false.B
+          io.ram.data_i   := 0.U(DLEN.W)
         }.otherwise{//miss & dirty
-          ram_wen    := true.B
-          ram_addr   := Cat(tags(index), index)
-          ram_data_i := regs(index)
-          wait_type := WAIT_WRITE_OLD
+          wait_type       := WAIT_WRITE_OLD
+          io.data_o       := 0.U(DLEN.W)
+          io.stall        := true.B
+          io.ram.addr     := Cat(tags(index), index)
+          io.ram.wen      := true.B
+          io.ram.data_i   := regs(index)
         }
       }.otherwise{//read
-        when(tags(index) === tag){//hit
-          data_out      := regs(index)
+        when(valids(index) && tags(index) === tag){//hit
+          io.data_o       := regs(index)
+          io.stall        := false.B
+          io.ram.addr     := 0.U(DLEN.W)
+          io.ram.wen      := false.B
+          io.ram.data_i   := 0.U(DLEN.W)
         }.elsewhen(dirtys(index) === false.B){//miss & clean
-          ram_addr   := addr
-          wait_type := WAIT_READ_NEW
+          valids(index)   := true.B
+          wait_type       := WAIT_READ_NEW
+          io.data_o       := 0.U(DLEN.W)
+          io.stall        := true.B
+          io.ram.addr     := io.addr
+          io.ram.wen      := false.B
+          io.ram.data_i   := 0.U(DLEN.W)
         }.otherwise{//miss & dirty
-          ram_addr   := Cat(tags(index), index)
-          ram_data_i := regs(index)
-          wait_type := WAIT_WRITE_OLD
+          wait_type       := WAIT_WRITE_OLD
+          io.data_o       := 0.U(DLEN.W)
+          io.stall        := true.B
+          io.ram.addr     := Cat(tags(index), index)
+          io.ram.wen      := true.B
+          io.ram.data_i   := regs(index)
         }
       }
+    }.otherwise{
+      io.data_o       := 0.U(DLEN.W)
+      io.stall        := false.B
+      io.ram.addr     := 0.U(DLEN.W)
+      io.ram.wen      := false.B
+      io.ram.data_i   := 0.U(DLEN.W)
     }
   }.elsewhen(wait_type === WAIT_WRITE_OLD){
-    when(io.ram.valid){
-      ram_addr := addr
-      ram_wen  := false.B
-      wait_type := WAIT_READ_NEW    
+    when(io.ram.valid){ // already write
+      wait_type       := WAIT_READ_NEW
+      io.data_o       := 0.U(DLEN.W)
+      io.stall        := true.B
+      io.ram.addr     := io.addr
+      io.ram.wen      := false.B
+      io.ram.data_i   := 0.U(DLEN.W)
+    }.otherwise{ // wait to write
+      io.data_o       := 0.U(DLEN.W)
+      io.stall        := true.B
+      io.ram.addr     := Cat(tags(index), index)
+      io.ram.wen      := true.B
+      io.ram.data_i   := regs(index)
     }
   }.elsewhen(wait_type === WAIT_READ_NEW){
-    when(io.ram.valid){
-      wait_type     := WAIT_NOTHING
-      when(wen){//write
-        tags(index)   := tag
-        regs(index)   := data
-        dirtys(index) := true.B
-      }.otherwise{//read
-        tags(index)   := tag
-        regs(index)   := io.ram.data_o
-        dirtys(index) := false.B
-        data_out := io.ram.data_o
-      }
+    // when(io.ram.valid){
+    when(io.wen){//write
+      wait_type       := WAIT_NOTHING
+      tags(index)     := tag
+      regs(index)     := io.data_i
+      dirtys(index)   := true.B
+      io.data_o       := 0.U(DLEN.W)
+      io.stall        := false.B
+      io.ram.addr     := 0.U(DLEN.W)
+      io.ram.wen      := false.B
+      io.ram.data_i   := 0.U(DLEN.W)
+    }.otherwise{//read
+      wait_type       := WAIT_NOTHING
+      tags(index)     := tag
+      regs(index)     := io.ram.data_o
+      dirtys(index)   := false.B
+      io.data_o       := io.ram.data_o
+      io.stall        := false.B
+      io.ram.addr     := io.addr // because it is Combinatorial logic
+      io.ram.wen      := false.B
+      io.ram.data_i   := 0.U(DLEN.W)
     }
+  }.otherwise{// invalid state
+      io.data_o       := 0.U(DLEN.W)
+      io.stall        := true.B
+      io.ram.addr     := 0.U(DLEN.W)
+      io.ram.wen      := false.B
+      io.ram.data_i   := 0.U(DLEN.W)
   }
-  io.stall := (wait_type =/= WAIT_NOTHING)
+  // val debug = Wire(UInt(DLEN.W))
+  // debug := tags(4)
+  BoringUtils.addSource(io.ram.addr, "debug2")
+  BoringUtils.addSource(io.ram.data_o, "debug3")
 }

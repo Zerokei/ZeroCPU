@@ -53,7 +53,8 @@ int dut_getcommom(int a){
         return dut->io_difftest_commom_1;
     else if(a == 2)
         return dut->io_difftest_commom_2;
-
+    else if(a == 3)
+        return dut->io_difftest_commom_3;
 }
 
 void dut_getpcs(diff_pcs *pcs) {

@@ -17,7 +17,7 @@ class Decoder(verilator: Boolean = false) extends Module{
     val op_src1     = Output(UInt(OP1_SIG_LEN.W))
     val op_src2     = Output(UInt(OP2_SIG_LEN.W))
     val alu_op      = Output(UInt(ALU_SIG_LEN.W))
-    val mem_op      = Output(Bool())
+    val mem_op      = Output(UInt(MEM_SIG_LEN.W))
     val csr_write   = Output(UInt(CSW_SIG_LEN.W))
     // imm
     val imm         = Output(UInt(DLEN.W))
