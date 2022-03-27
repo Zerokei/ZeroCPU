@@ -7,13 +7,16 @@ import zeroCPU.const.ZeroConfig._
 import zeroCPU.utils._
 import zeroCPU.cache._
 
+
+class CPUIO extends Bundle{
+  val rom = Flipped(new RomIO())
+  val ram = Flipped(new RamIO())
+}
 class CPU(verilator: Boolean = false) extends Module{
-  val io = IO(new Bundle{
-    val rom = Flipped(new RomIO())
-    val ram = Flipped(new RamIO())
-	})
-  val icache  = Module(new ICache())
-  val dcache  = Module(new DCache())
+  val io = IO(new CPUIO)
+  
+  val icache  = Module(new ICache(verilator))
+  val dcache  = Module(new DCache(verilator))
   val alu     = Module(new ALU(verilator))
   val csr_mod = Module(new CSR_MOD(verilator))
   val decode  = Module(new Decoder(verilator))
@@ -271,5 +274,7 @@ class CPU(verilator: Boolean = false) extends Module{
     BoringUtils.addSource(dcache.io.wen, "debug1")
     // BoringUtils.addSource(dcache.io., "debug2")
     // BoringUtils.addSource(dcache.io.addr, "debug3")
+  }else{
+    BoringUtils.addSource(pc_IF, "debug0")
   }
 }

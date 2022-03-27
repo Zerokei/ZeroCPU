@@ -13,7 +13,7 @@ class ICacheIO extends Bundle{
 	val data  	= Output(UInt(DLEN.W))
   val stall		= Output(Bool())
 }
-class ICache extends Module{
+class ICache(verilator: Boolean = false) extends Module{
   val io = IO(new ICacheIO())
   val regs = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(DLEN.W))))
   val tags = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(TAG_LEN.W))))
@@ -73,7 +73,7 @@ class DCacheIO extends Bundle{
 	val data_o	= Output(UInt(DLEN.W))
   val stall		= Output(Bool())
 }
-class DCache extends Module{
+class DCache(verilator: Boolean = false) extends Module{
   val io = IO(new DCacheIO())
   val regs = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(DLEN.W))))
   val tags = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(TAG_LEN.W))))
@@ -193,6 +193,18 @@ class DCache extends Module{
   }
   // val debug = Wire(UInt(DLEN.W))
   // debug := tags(4)
-  BoringUtils.addSource(io.ram.addr, "debug2")
-  BoringUtils.addSource(io.ram.data_o, "debug3")
+  if(verilator){
+    BoringUtils.addSource(io.ram.addr, "debug2")
+    BoringUtils.addSource(io.ram.data_o, "debug3")
+  }else{
+    val switch = WireInit(0.U(12.W))
+    val index = switch(6,0)
+    val tags_choose = tags(index)
+    val debug3 = Cat(dirtys(index), valids(index), tags_choose(TAG_LEN-3, 0), index)
+    val reg_choose = WireInit(0.U(DLEN.W))
+    reg_choose := regs(switch(6,0))
+		BoringUtils.addSink(switch, "switch")
+    BoringUtils.addSource(reg_choose, "debug2")
+    BoringUtils.addSource(debug3, "debug3")
+  }
 }

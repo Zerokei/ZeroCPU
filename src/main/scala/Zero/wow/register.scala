@@ -22,6 +22,13 @@ class Register(verilator: Boolean = false) extends Module{
   if(verilator){
   	BoringUtils.addSource(v, "dt_gprs")
   }
+  else{
+		val switch = WireInit(0.U(12.W))
+		BoringUtils.addSink(switch, "switch")
+		val v_choose = WireInit(0.U(DLEN.W))
+		v_choose := v(switch(11, 7))
+		BoringUtils.addSource(v_choose, "debug1")
+  }
 
   // write
 	when(io.rd =/= 0.U(NREGS_BIT.W) && io.reg_write){
