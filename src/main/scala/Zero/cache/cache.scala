@@ -45,18 +45,18 @@ class ICache(verilator: Boolean = false) extends Module{
       io.data       := regs(index)
     }
   }.elsewhen(wait_type === WAIT_READ_NEW){//wait for rom (already or not ready)
-    // when(io.rom.valid){// rom write back
+    when(io.rom.valid){// rom write back
       io.rom.addr   := io.addr  // because it is Combinatorial logic
       io.stall      := false.B
       io.data       := io.rom.data
       tags(index)   := tag
       regs(index)   := io.rom.data
       wait_type     := WAIT_NOTHING
-    // }.otherwise{// wait for rom
-    //   io.rom.addr   := 0.U(DLEN.W)
-    //   io.stall      := true.B
-    //   io.data       := 0.U(DLEN.W)
-    // }
+    }.otherwise{// wait for rom
+      io.rom.addr   := io.addr
+      io.stall      := true.B
+      io.data       := 0.U(DLEN.W)
+    }
   }.otherwise{// exception
     io.rom.addr     := 0.U(DLEN.W)
     io.stall        := true.B
@@ -162,25 +162,32 @@ class DCache(verilator: Boolean = false) extends Module{
       io.ram.data_i   := regs(index)
     }
   }.elsewhen(wait_type === WAIT_READ_NEW){
-    // when(io.ram.valid){
-    when(io.wen){//write
-      wait_type       := WAIT_NOTHING
-      tags(index)     := tag
-      regs(index)     := io.data_i
-      dirtys(index)   := true.B
+    when(io.ram.valid){
+      when(io.wen){//write
+        wait_type       := WAIT_NOTHING
+        tags(index)     := tag
+        regs(index)     := io.data_i
+        dirtys(index)   := true.B
+        io.data_o       := 0.U(DLEN.W)
+        io.stall        := false.B
+        io.ram.addr     := 0.U(DLEN.W)
+        io.ram.wen      := false.B
+        io.ram.data_i   := 0.U(DLEN.W)
+      }.otherwise{//read
+        wait_type       := WAIT_NOTHING
+        tags(index)     := tag
+        regs(index)     := io.ram.data_o
+        dirtys(index)   := false.B
+        io.data_o       := io.ram.data_o
+        io.stall        := false.B
+        io.ram.addr     := io.addr // because it is Combinatorial logic
+        io.ram.wen      := false.B
+        io.ram.data_i   := 0.U(DLEN.W)
+      }
+    }.otherwise{
       io.data_o       := 0.U(DLEN.W)
-      io.stall        := false.B
-      io.ram.addr     := 0.U(DLEN.W)
-      io.ram.wen      := false.B
-      io.ram.data_i   := 0.U(DLEN.W)
-    }.otherwise{//read
-      wait_type       := WAIT_NOTHING
-      tags(index)     := tag
-      regs(index)     := io.ram.data_o
-      dirtys(index)   := false.B
-      io.data_o       := io.ram.data_o
-      io.stall        := false.B
-      io.ram.addr     := io.addr // because it is Combinatorial logic
+      io.stall        := true.B
+      io.ram.addr     := io.addr
       io.ram.wen      := false.B
       io.ram.data_i   := 0.U(DLEN.W)
     }

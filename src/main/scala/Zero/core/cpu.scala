@@ -270,8 +270,8 @@ class CPU(verilator: Boolean = false) extends Module{
     // BoringUtils.addSource(inst_EXE, "debug0")
     // BoringUtils.addSource(alo_WB, "debug1")
     // BoringUtils.addSource(icache.io.data, "debug2")
-    BoringUtils.addSource(dcache.io.addr, "debug0")
-    BoringUtils.addSource(dcache.io.wen, "debug1")
+    BoringUtils.addSource(pc_EXE, "debug0")
+    BoringUtils.addSource(pc_IF, "debug1")
     // BoringUtils.addSource(dcache.io., "debug2")
     // BoringUtils.addSource(dcache.io.addr, "debug3")
   }else{
