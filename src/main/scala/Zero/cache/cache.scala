@@ -214,17 +214,15 @@ class DCache(verilator: Boolean = false) extends Module{
       io.ram.wen      := false.B
       io.ram.data_i   := 0.U(DLEN.W)
   }
-  // val debug = Wire(UInt(DLEN.W))
-  // debug := tags(4)
+
   if(verilator){
     BoringUtils.addSource(io.ram.addr, "debug2")
     BoringUtils.addSource(io.ram.data_o, "debug3")
   }else{
     val switch = WireInit(0.U(12.W))
-    val index = switch(6,0)
-    val tags_choose = tags(index)
-    val debug3 = Cat(dirtys(index), valids(index), tags_choose(TAG_LEN-3, 0), index)
     val reg_choose = WireInit(0.U(DLEN.W))
+    val index = switch(6,0)
+    val debug3 = Cat(Implement, dirtys(index), valids(index), tags(index), index)
     reg_choose := regs(switch(6,0))
 		BoringUtils.addSink(switch, "switch")
     BoringUtils.addSource(reg_choose, "debug2")
