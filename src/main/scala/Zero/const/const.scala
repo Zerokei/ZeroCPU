@@ -12,11 +12,6 @@ object ZeroConfig{
   val NREGS = 32 // number of registers
   val NREGS_BIT = log2Ceil(NREGS)
 
-  val CACOUNTS  = 128
-  val CAMASK    = 127.U
-  val INDEX_LEN = 7
-  val TAG_LEN   = DLEN-INDEX_LEN
-
   val NOP = "h00000013".U(LEN.W)
   
   // Cache auto mechine

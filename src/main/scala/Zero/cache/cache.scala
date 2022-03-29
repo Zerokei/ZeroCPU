@@ -5,6 +5,17 @@ import zeroCPU.utils._
 import chisel3.util.experimental.BoringUtils
 import zeroCPU.const.ZeroConfig._
 
+object CacheNumbers {
+  val INDEX_LEN   = 7
+  val OFFSET_LEN  = 2
+  val TAG_LEN     = 4
+  val REST_LEN    = DLEN - TAG_LEN - OFFSET_LEN - INDEX_LEN
+  val Implement   = 0.U(REST_LEN.W)
+
+  val CACOUNTS    = 1<<INDEX_LEN
+  val CAMASK      = ((1<<INDEX_LEN)-1).U
+  val CTMASK      = ((1<<TAG_LEN)-1).U
+}
 
 class ICacheIO extends Bundle{
 	val rom	 		= Flipped(new RomIO())
@@ -14,6 +25,7 @@ class ICacheIO extends Bundle{
   val stall		= Output(Bool())
 }
 class ICache(verilator: Boolean = false) extends Module{
+  import CacheNumbers._
   val io = IO(new ICacheIO())
   val regs = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(DLEN.W))))
   val tags = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(TAG_LEN.W))))
@@ -23,8 +35,8 @@ class ICache(verilator: Boolean = false) extends Module{
 
   val index = Wire(UInt(INDEX_LEN.W))
   val tag   = Wire(UInt(TAG_LEN.W))
-  index := io.addr & CAMASK
-  tag   := io.addr >> INDEX_LEN
+  index := (io.addr >> OFFSET_LEN) & CAMASK
+  tag   := (io.addr >> (INDEX_LEN+OFFSET_LEN)) & CTMASK
 
   when(wait_type === WAIT_NOTHING){//wait for query
     when(io.valid){
@@ -53,7 +65,7 @@ class ICache(verilator: Boolean = false) extends Module{
       regs(index)   := io.rom.data
       wait_type     := WAIT_NOTHING
     }.otherwise{// wait for rom
-      io.rom.addr   := io.addr
+      io.rom.addr   := 0.U(DLEN.W)
       io.stall      := true.B
       io.data       := 0.U(DLEN.W)
     }
@@ -74,6 +86,8 @@ class DCacheIO extends Bundle{
   val stall		= Output(Bool())
 }
 class DCache(verilator: Boolean = false) extends Module{
+  import CacheNumbers._
+  
   val io = IO(new DCacheIO())
   val regs = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(DLEN.W))))
   val tags = RegInit(VecInit(Seq.fill(CACOUNTS)(0.U(TAG_LEN.W))))
@@ -82,10 +96,12 @@ class DCache(verilator: Boolean = false) extends Module{
   
   val wait_type = RegInit(0.U(WAIT_SIG_LEN.W))
 
-  val index = Wire(UInt(INDEX_LEN.W))
-  val tag   = Wire(UInt(TAG_LEN.W))
-  index := io.addr & CAMASK
-  tag   := io.addr >> INDEX_LEN
+  val index     = Wire(UInt(INDEX_LEN.W))
+  val tag       = Wire(UInt(TAG_LEN.W))
+  val pas_addr  = Wire(UInt(DLEN.W))
+  index := (io.addr >> OFFSET_LEN) & CAMASK
+  tag   := (io.addr >> (INDEX_LEN+OFFSET_LEN)) & CTMASK
+  pas_addr := Cat(Implement, tags(index), index, 0.U(OFFSET_LEN.W))
 
   when(wait_type === WAIT_NOTHING){
     when(io.valid){
@@ -111,7 +127,7 @@ class DCache(verilator: Boolean = false) extends Module{
           wait_type       := WAIT_WRITE_OLD
           io.data_o       := 0.U(DLEN.W)
           io.stall        := true.B
-          io.ram.addr     := Cat(tags(index), index)
+          io.ram.addr     := pas_addr
           io.ram.wen      := true.B
           io.ram.data_i   := regs(index)
         }
@@ -134,7 +150,7 @@ class DCache(verilator: Boolean = false) extends Module{
           wait_type       := WAIT_WRITE_OLD
           io.data_o       := 0.U(DLEN.W)
           io.stall        := true.B
-          io.ram.addr     := Cat(tags(index), index)
+          io.ram.addr     := pas_addr
           io.ram.wen      := true.B
           io.ram.data_i   := regs(index)
         }
@@ -157,7 +173,7 @@ class DCache(verilator: Boolean = false) extends Module{
     }.otherwise{ // wait to write
       io.data_o       := 0.U(DLEN.W)
       io.stall        := true.B
-      io.ram.addr     := Cat(tags(index), index)
+      io.ram.addr     := pas_addr
       io.ram.wen      := true.B
       io.ram.data_i   := regs(index)
     }
@@ -180,14 +196,14 @@ class DCache(verilator: Boolean = false) extends Module{
         dirtys(index)   := false.B
         io.data_o       := io.ram.data_o
         io.stall        := false.B
-        io.ram.addr     := io.addr // because it is Combinatorial logic
+        io.ram.addr     := io.addr
         io.ram.wen      := false.B
         io.ram.data_i   := 0.U(DLEN.W)
       }
-    }.otherwise{
+    }.otherwise{// wait for ram
       io.data_o       := 0.U(DLEN.W)
       io.stall        := true.B
-      io.ram.addr     := io.addr
+      io.ram.addr     := 0.U(DLEN.W)
       io.ram.wen      := false.B
       io.ram.data_i   := 0.U(DLEN.W)
     }
