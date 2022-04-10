@@ -182,7 +182,7 @@ class DCache(verilator: Boolean = false) extends Module{
       wait_type       := WAIT_NOTHING
       tags(index)     := tag
       regs(index)     := io.ram.data_o
-      dirtys(index)   := true.B
+      dirtys(index)   := false.B
       io.data_o       := 0.U(DLEN.W)
       io.stall        := true.B
       io.ram.addr     := io.addr
@@ -210,7 +210,7 @@ class DCache(verilator: Boolean = false) extends Module{
     val switch = WireInit(0.U(12.W))
     val reg_choose = WireInit(0.U(DLEN.W))
     val index = switch(6,0)
-    val debug3 = Cat(Implement, dirtys(index), valids(index), tags(index), index)
+    val debug3 = Cat(Implement, dirtys(index), valids(index), tags(index), 0.U(OFFSET_LEN.W))
     reg_choose := regs(switch(6,0))
 		BoringUtils.addSink(switch, "switch")
     BoringUtils.addSource(reg_choose, "debug2")
