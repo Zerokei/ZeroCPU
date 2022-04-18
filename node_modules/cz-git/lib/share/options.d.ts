@@ -1,0 +1,248 @@
+/**
+ * @description: cz-git types
+ * @author: @Zhengqbbb (zhengqbbb@gmail.com)
+ * @license: MIT
+ * @copyright: Copyright (c) 2022-present Qiubin Zheng
+ */
+import type { QuestionsType } from "../loader";
+import type { CommitlintUserConfig } from "./commitlint";
+export interface UserConfig extends CommitlintUserConfig {
+    prompt?: CommitizenGitOptions;
+}
+export declare type Config = Omit<Partial<typeof defaultConfig>, "scopes"> & {
+    scopes: ScopesType;
+    disableScopeLowerCase?: boolean;
+    disableSubjectLowerCase?: boolean;
+    maxHeaderLength?: number;
+    maxSubjectLength?: number;
+    minSubjectLength?: number;
+    defaultScope?: string;
+    defaultSubject?: string;
+    defaultBody?: string;
+    defaultFooterPrefix?: string;
+    defaultIssues?: string;
+};
+export declare type Answers = {
+    /**
+     * @default: Select the type of change that you're committing:
+     */
+    type?: string;
+    /**
+     * @default: Denote the SCOPE of this change (optional):
+     */
+    scope?: string;
+    /**
+     * @default: Denote the SCOPE of this change:
+     */
+    customScope?: string;
+    /**
+     * @default: Write a SHORT, IMPERATIVE tense description of the change:\n
+     */
+    subject?: string;
+    /**
+     * @default:Provide a LONGER description of the change (optional). Use "|" to break new line:\n
+     */
+    body?: string;
+    /**
+     * @default: List any BREAKING CHANGES (optional):\n
+     */
+    breaking?: string;
+    /**
+     * @default: Select the ISSUES type of changeList by this change (optional):
+     */
+    footerPrefixsSelect?: string;
+    footerPrefix?: string;
+    /**
+     * @default: Input ISSUES Prefix:
+     */
+    customFooterPrefixs?: string;
+    /**
+     * @default: List any ISSUES by this change. E.g.: #31, #34, #I972S:\n
+     */
+    footer?: string;
+    /**
+     * @default: Are you sure you want to proceed with the commit above ?
+     */
+    confirmCommit?: string;
+};
+export declare type ScopesType = string[] | Array<{
+    name: string;
+    value?: string;
+}>;
+export interface CommitizenType {
+    registerPrompt: (type: string, plugin: unknown) => void;
+    prompt: (qs: QuestionsType) => Promise<Answers>;
+}
+export interface Option {
+    /**
+     * @description: show prompt name
+     */
+    name: string;
+    /**
+     * @description: output real value
+     */
+    value: string;
+}
+export declare type StringCallback = () => string;
+export interface TypesOption extends Option {
+    /**
+     * @description: Submit emoji commit string
+     * @see: https://gitmoji.dev/
+     * @example: ":bug:" => 🐛
+     */
+    emoji?: string;
+}
+export interface CommitizenGitOptions {
+    /**
+     * @description: Customize prompt questions
+     */
+    messages?: Answers;
+    /**
+     * @description: Customize prompt type
+     */
+    types?: TypesOption[];
+    /**
+     * @description: Add extra types to default types
+     * @use Use when you don't want to add bloated defaults and don't want to adjust the default order in configuration
+     * @example `typesAppend: [ { value: "workflow", name: "workflow:  Workflow changes"} ],`
+     * @default: []
+     */
+    typesAppend?: TypesOption[];
+    /**
+     * @description: Use emoji ？| it will be use typesOption.emoji code
+     * @default: false
+     */
+    useEmoji?: boolean;
+    /**
+     * @description: Provides a select of prompt to select module scopes
+     * @note it auto import value from rule "scope-enum" with `@commitlint`
+     * @use want to add scopes description or when you not use commitlint
+     */
+    scopes?: ScopesType;
+    /**
+     * @description: Provides an overriding select of prompt to select module scopes under specific typs
+     * @note use this option should set `scopes` option to realize distinguish
+     * @example: [test] => provide select e2eTest unitTest
+     */
+    scopeOverrides?: {
+        [type: string]: ScopesType;
+    };
+    /**
+     * @description: Whether to show customizing when selecting scopes
+     * @note it auto check rule "scope-enum" set the option with `@commitlint`
+     * @use when you not use commitlint
+     * @default true
+     */
+    allowCustomScopes?: boolean;
+    /**
+     * @description: Whether to show empty when selecting scopes
+     * @default true
+     */
+    allowEmptyScopes?: boolean;
+    /**
+     * @default: "bottom"
+     */
+    customScopesAlign?: "top" | "bottom" | "top-bottom" | "bottom-top";
+    /**
+     * @default: "custom"
+     */
+    customScopesAlias?: string;
+    /**
+     * @default: "empty"
+     */
+    emptyScopesAlias?: string;
+    /**
+     * @description: Subject is need upper case first.
+     * @default false
+     */
+    upperCaseSubject?: boolean;
+    /**
+     * @description: Allow breaking changes in the included types output box
+     * @default: ['feat', 'fix']
+     */
+    allowBreakingChanges?: string[];
+    /**
+     * @description: set body and BREAKING CHANGE max length to breakline
+     * @default: 100
+     * @note it auto check rule "body-max-line-length" set the option with `@commitlint`.
+     * @use when you not use commitlint
+     */
+    breaklineNumber?: number;
+    /**
+     * @description: body and BREAKINGCHANGES new line char
+     * @default: "|"
+     */
+    breaklineChar?: string;
+    /**
+     * @description: Provides a select issue prefix box in footer
+     * @default: issuePrefixs: [{ value: "closed", name: "ISSUES has been processed" }]
+     */
+    issuePrefixs?: Option[];
+    /**
+     * @default: "top"
+     */
+    customIssuePrefixsAlign?: "top" | "bottom" | "top-bottom" | "bottom-top";
+    /**
+     * @default: "skip"
+     */
+    emptyIssuePrefixsAlias?: string;
+    /**
+     * @default: "custom"
+     */
+    customIssuePrefixsAlias?: string;
+    /**
+     * @description: Prompt final determination whether to display the color
+     * @default: true
+     */
+    confirmColorize?: boolean;
+    /**
+     * @description: List of questions you want to skip
+     * @default: []
+     * @example: ['body']
+     */
+    skipQuestions?: Array<"scope" | "body" | "breaking" | "footerPrefix" | "footer">;
+    /**
+     * @description: Force set max header length | Equivalent setting maxSubjectLength.
+     * @note it auto check rule "header-max-length" set the option with `@commitlint`.
+     * @use when you not use commitlint
+     */
+    maxHeaderLength?: number;
+    /**
+     * @description: Force set max subject length.
+     * @note it auto check rule "subject-max-length" set the option with `@commitlint`.
+     * @use when you not use commitlint
+     */
+    maxSubjectLength?: number;
+    /**
+     * @description: Force set header width.
+     * @note it auto check rule "subject-min-length" set the option with `@commitlint`.
+     * @use when you not use commitlint
+     */
+    minSubjectLength?: number;
+    /**
+     * @description: default value show scope custom prompt
+     * @example: When you want to use default, just keybord <Enter> it
+     */
+    defaultScope?: string | StringCallback;
+    /**
+     * @description: default value show subject prompt
+     * @example: When you want to use default, just keybord <Enter> it
+     */
+    defaultSubject?: string | StringCallback;
+    /**
+     * @description: default value show body and BREAKINGCHANGES prompt
+     * @example: When you want to use default, just keybord <Enter> it
+     */
+    defaultBody?: string | StringCallback;
+    /**
+     * @description: default value show issuePrefixs custom prompt
+     * @example: When you want to use default, just keybord <Enter> it
+     */
+    defaultFooterPrefix?: string | StringCallback;
+    /**
+     * @description: default value show issue foot prompt
+     * @example: When you want to use default, just keybord <Enter> it
+     */
+    defaultIssues?: string | StringCallback;
+}
+export declare const defaultConfig: Readonly<CommitizenGitOptions>;
