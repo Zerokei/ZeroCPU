@@ -1,4 +1,4 @@
-# ZeroCPU
+# ZeroCPU :tiger:
 The CPU designed by Zerokei :)
 
 ## How to use it
